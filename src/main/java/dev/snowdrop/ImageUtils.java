@@ -8,7 +8,7 @@ import org.slf4j.LoggerFactory;
 public class ImageUtils {
     private static final Logger LOGGER = LoggerFactory.getLogger(ImageUtils.class);
 
-    protected static void pullImage(DockerClient dockerClient, String imageName) throws InterruptedException {
+    public static void pullImage(DockerClient dockerClient, String imageName) throws InterruptedException {
         LOGGER.info("Pulling image: {}", imageName);
         dockerClient.pullImageCmd(imageName)
             .exec(new PullImageResultCallback())
