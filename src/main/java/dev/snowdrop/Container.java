@@ -5,6 +5,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class Container {
+
     private static final Logger LOGGER = LoggerFactory.getLogger(Container.class);
     protected static DockerClient dockerClient;
 
