@@ -3,6 +3,7 @@ package dev.snowdrop;
 import com.github.dockerjava.api.DockerClient;
 import com.github.dockerjava.api.command.CreateContainerCmd;
 import com.github.dockerjava.api.model.*;
+import com.github.dockerjava.api.model.Container;
 import com.github.dockerjava.core.DefaultDockerClientConfig;
 import com.github.dockerjava.core.DockerClientImpl;
 import com.github.dockerjava.httpclient5.ApacheDockerHttpClient;
@@ -21,22 +22,44 @@ import java.util.List;
 
 public class ContainerUtils {
     private static final Logger LOGGER = LoggerFactory.getLogger(ContainerUtils.class);
+    private static DockerClient dockerClient;
 
     protected static DockerClient ConfigureDockerClient() {
-        try {
-            var config = DefaultDockerClientConfig.createDefaultConfigBuilder()
-                .build();
-            var httpClient = new ApacheDockerHttpClient.Builder()
-                .dockerHost(config.getDockerHost())
-                .build();
-            var dockerClient = DockerClientImpl.getInstance(config, httpClient);
+        if (dockerClient == null) {
+            try {
+                var config = DefaultDockerClientConfig.createDefaultConfigBuilder()
+                    .build();
+                var httpClient = new ApacheDockerHttpClient.Builder()
+                    .dockerHost(config.getDockerHost())
+                    .build();
+                dockerClient = DockerClientImpl.getInstance(config, httpClient);
+                return dockerClient;
+            } catch (Exception e) {
+                LOGGER.error("Failed to create Docker client: {}", e.getMessage(), e);
+                return null;
+            }
+        } else {
             return dockerClient;
-        } catch (Exception e) {
-            LOGGER.error("Failed to create Docker client: {}", e.getMessage(), e);
-            return null;
         }
     }
 
+    public static String fetchContainerId(String containerName) throws IOException {
+
+        List<Container> containers = dockerClient.listContainersCmd()
+            .withShowAll(true)
+            .exec();
+
+        for (Container container : containers) {
+            for (String name : container.getNames()) {
+                // container names are prefixed with '/'
+                if (name.equals("/" + containerName)) {
+                    LOGGER.info("Container ID: " + container.getId());
+                    return container.getId();
+                }
+            }
+        }
+        return containerName;
+    }
 
     public static CreateContainerCmd convertInspectJsonToCreateCommand(DockerClient dockerClient, String jsonFilePath) throws IOException {
         String jsonContent = new String(Files.readAllBytes(Paths.get(jsonFilePath)));

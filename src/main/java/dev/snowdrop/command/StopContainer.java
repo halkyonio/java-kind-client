@@ -9,6 +9,8 @@ import picocli.CommandLine;
 
 import java.util.concurrent.Callable;
 
+import static dev.snowdrop.ContainerUtils.fetchContainerId;
+
 @CommandLine.Command(name = "stop", description = "Stop a running container")
 public class StopContainer extends Container implements Callable<Integer> {
 
@@ -23,7 +25,8 @@ public class StopContainer extends Container implements Callable<Integer> {
     @Override
     public Integer call() {
         try {
-            dockerClient.stopContainerCmd(containerIdOrName)
+            var containerId = fetchContainerId(containerIdOrName);
+            dockerClient.stopContainerCmd(containerId)
                 .withTimeout(stopTimeout)
                 .exec();
             LOGGER.info("Container stopped: {}", containerIdOrName);

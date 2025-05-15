@@ -22,6 +22,7 @@ import java.util.concurrent.Callable;
 public class CreateContainer extends Container  implements Callable<Integer> {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(CreateContainer.class);
+    private static final String KIND_IMAGE = "kindest/node:v1.29.14";
 
     @CommandLine.Parameters(index = "0", description = "The image name to use for the container")
     String containerName;
@@ -37,7 +38,7 @@ public class CreateContainer extends Container  implements Callable<Integer> {
         List<String> command;
         */
 
-    @CommandLine.Option(names = {"-p", "--publish"}, description = "Publish a container's port(s) to the host", arity = "1..*")
+    @CommandLine.Option(names = {"-p", "--port"}, description = "Bind a container's port(s) to the host", arity = "1..*")
     List<String> ports;  // e.g., "8080:80", "443:443/tcp"
 
     @CommandLine.Option(names = {"-v", "--volume"}, description = "Bind a volume to the container", arity = "1..*")
@@ -51,7 +52,7 @@ public class CreateContainer extends Container  implements Callable<Integer> {
         try {
             // Check if image name has been defined
             if (imageName == null) {
-                imageName = "mongo:3.6";
+                imageName = KIND_IMAGE;
             }
 
             // Pull image
@@ -64,10 +65,8 @@ public class CreateContainer extends Container  implements Callable<Integer> {
                 ccc.withName(containerName);
             }
 
-            ccc.withCmd("--bind_ip_all");
-            ccc.withEnv("MONGO_LATEST_VERSION=3.6");
-            ccc.getHostConfig().withPortBindings(PortBinding.parse("9999:27017"));
-            ccc.getHostConfig().withBinds(Bind.parse("/Users/cmoullia/code/ch007m/my-java-idp/my-java-idp/db:/data/db"));
+            ccc.withEntrypoint("/usr/local/bin/entrypoint", "/sbin/init");
+            ccc.getHostConfig().withPortBindings(PortBinding.parse("49363:6443"));
 
                 /*
                 if (ports != null && !ports.isEmpty()) {

@@ -8,6 +8,8 @@ import picocli.CommandLine;
 
 import java.util.concurrent.Callable;
 
+import static dev.snowdrop.ContainerUtils.fetchContainerId;
+
 @CommandLine.Command(name = "delete", description = "Delete a container")
 public class DeleteContainer extends Container implements Callable<Integer> {
 
@@ -19,7 +21,8 @@ public class DeleteContainer extends Container implements Callable<Integer> {
     @Override
     public Integer call() {
         try {
-            dockerClient.removeContainerCmd(containerIdOrName)
+            var containerId = fetchContainerId(containerIdOrName);
+            dockerClient.removeContainerCmd(containerId)
                 .exec();
             LOGGER.info("Container deleted: {}", containerIdOrName);
 
