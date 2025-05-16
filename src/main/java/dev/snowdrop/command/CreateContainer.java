@@ -88,21 +88,22 @@ public class CreateContainer extends Container implements Callable<Integer> {
                 ccc.withName(containerName);
             }
 
-            ccc.withEntrypoint("/usr/local/bin/entrypoint", "/sbin/init");
-            ccc.getHostConfig().withPortBindings(PortBinding.parse(String.format("%s:%s", getFreePortOnHost(), KUBE_API_PORT)));
-
             final Volume varVolume = new Volume("/var/lib/containerd");
             final Volume modVolume = new Volume("/lib/modules");
             final List<Volume> volumes = new ArrayList<>();
             volumes.add(varVolume);
             volumes.add(modVolume);
-            ccc.withVolumes(volumes);
 
             final List<Bind> binds = new ArrayList<>();
             binds.add(new Bind(volumeName, varVolume, true));
             binds.add(new Bind("/lib/modules", modVolume, ro));
-            ccc.withBinds(binds);
 
+            ccc.withEntrypoint("/usr/local/bin/entrypoint", "/sbin/init")
+                .withTty(true)
+                .withVolumes(volumes)
+                .withBinds(binds);
+
+            ccc.getHostConfig().withPortBindings(PortBinding.parse(String.format("%s:%s", getFreePortOnHost(), KUBE_API_PORT)));
             ccc.getHostConfig().withPrivileged(true);
             ccc.getHostConfig().withTmpFs(TMP_FILESYSTEMS);
 
@@ -127,12 +128,13 @@ public class CreateContainer extends Container implements Callable<Integer> {
                 LOGGER.info("Container started: {}", containerId);
 
                 // Wait for the container to be running and the message to appear
-                waitForLogMessage(containerId, "starting init", 60);
+                waitForLogMessage(containerId, "multi-user.target", 60);
 
-                // TODO Find a better way to wait
-                TimeUnit.SECONDS.sleep(20);
+                // TODO Find a better way to wait and use CountDownLatch
+                TimeUnit.SECONDS.sleep(5);
 
                 // TODO: Add next steps to create the kubernetes cluster, install CNI and storage
+                containerInfo = dockerClient.inspectContainerCmd(containerId).exec();
                 final Map<String, String> params = kkc.prepareTemplateParams(containerInfo);
 
                 return 0;
