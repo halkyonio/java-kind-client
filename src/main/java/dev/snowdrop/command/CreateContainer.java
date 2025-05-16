@@ -3,7 +3,6 @@ package dev.snowdrop.command;
 import com.github.dockerjava.api.async.ResultCallback;
 import com.github.dockerjava.api.command.CreateContainerCmd;
 import com.github.dockerjava.api.command.CreateContainerResponse;
-import com.github.dockerjava.api.command.LogContainerCmd;
 import com.github.dockerjava.api.exception.DockerClientException;
 import com.github.dockerjava.api.exception.InternalServerErrorException;
 import com.github.dockerjava.api.exception.NotFoundException;
@@ -23,6 +22,7 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.Callable;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
 import static com.github.dockerjava.api.model.AccessMode.ro;
@@ -127,7 +127,7 @@ public class CreateContainer extends Container implements Callable<Integer> {
                 LOGGER.info("Container started: {}", containerId);
 
                 // Wait for the container to be running and the message to appear
-                waitForLogMessage(containerId, "starting init", 60, TimeUnit.SECONDS);
+                waitForLogMessage(containerId, "starting init", 60);
 
 /*                LOGGER.info("- attaching log relay");
                 // grab the logs to stdout.
@@ -179,68 +179,34 @@ public class CreateContainer extends Container implements Callable<Integer> {
         }
     }
 
-    private void waitForLogMessage(String containerId, String expectedMessage, long timeout, TimeUnit timeUnit)
+    private void waitForLogMessage(String containerId, String expectedMessage, int timeoutSeconds)
         throws InterruptedException, IOException {
-        final long startTime = System.currentTimeMillis();
-        final long timeoutMillis = timeUnit.toMillis(timeout);
-        final boolean[] messageFound = {false}; // Use an array to make it effectively final for the anonymous class
+
         ResultCallback<Frame> logCallback = null;
-        Closeable logStream = null;
+        CountDownLatch latch = new CountDownLatch(1);
 
-        try {
-            // Use a ResultCallback to asynchronously read the logs
-            logCallback = new ResultCallback.Adapter<Frame>() {
-                @Override
-                public void onNext(Frame frame) {
-                    String logEntry = new String(frame.getPayload());
-                    if (logEntry.contains(expectedMessage)) {
-                        LOGGER.info("Found expected message in logs: {}", logEntry);
-                        messageFound[0] = true; // Update the flag
-                        try {
-                            close(); // Close the callback to stop reading logs
-                        } catch (IOException e) {
-                            LOGGER.warn("Error closing log callback: {}", e.getMessage());
-                        }
-                    }
-                }
-
-                @Override
-                public void onError(Throwable throwable) {
-                    LOGGER.error("Error reading container logs: {}", throwable.getMessage(), throwable);
-                }
-            };
-
-            // Start listening to the logs
-            LogContainerCmd logContainerCmd = dockerClient.logContainerCmd(containerId)
-                .withFollowStream(true) // Keep the connection open to receive new logs
-                .withStdOut(true)
-                .withStdErr(true);
-
-            logStream = logContainerCmd.exec(logCallback);
-
-            // Poll for the message and check for timeout
-            while (!messageFound[0] && System.currentTimeMillis() - startTime < timeoutMillis) {
-                Thread.sleep(500); // Check every 500ms
-            }
-
-            if (!messageFound[0]) {
-                throw new IOException("Timeout waiting for message \"" + expectedMessage + "\" in container logs for container " + containerId);
-            }
-        } finally {
-            // Ensure resources are closed in a finally block
-            if (logStream != null) {
-                try {
-                    logStream.close();
-                } catch (IOException e) {
-                    LOGGER.warn("Error closing log stream: {}", e.getMessage());
+        // Use a ResultCallback to asynchronously read the logs
+        logCallback = new ResultCallback.Adapter<Frame>() {
+            @Override
+            public void onNext(Frame frame) {
+                String logEntry = new String(frame.getPayload());
+                if (logEntry.contains(expectedMessage)) {
+                    LOGGER.info("Found expected message in logs: {}", logEntry);
+                    latch.countDown();
                 }
             }
-            if (logCallback != null) {
-                try {
-                    logCallback.close();
-                } catch (IOException e) {
-                    LOGGER.warn("Error closing log callback: {}", e.getMessage());
-                }
+        };
+
+        try (Closeable logStream = dockerClient.logContainerCmd(containerId)
+            .withStdOut(true)
+            .withStdErr(true)
+            .withFollowStream(true)
+            .withTailAll()
+            .exec(logCallback)) {
+
+            boolean messageAppeared = latch.await(timeoutSeconds, TimeUnit.SECONDS);
+            if (!messageAppeared) {
+                throw new RuntimeException("Timeout: Expected log message not found within " + timeoutSeconds + " seconds.");
             }
         }
     }
