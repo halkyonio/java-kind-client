@@ -142,7 +142,7 @@ public class Container {
 
     private static boolean isRunning(InspectContainerResponse containerInfo) {
         try {
-            return containerInfo != null && containerInfo.getState().getStatus().equals("created");
+            return containerInfo != null && containerInfo.getState().getStatus().equals("running");
         } catch (DockerException e) {
             return false;
         }
