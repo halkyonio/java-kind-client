@@ -9,21 +9,18 @@ import com.github.dockerjava.api.model.PortBinding;
 import com.github.dockerjava.api.model.Volume;
 import dev.snowdrop.Container;
 import dev.snowdrop.container.ImageUtils;
+import dev.snowdrop.kind.KindKubernetesConfiguration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import picocli.CommandLine;
 
-import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.Callable;
 
 import static com.github.dockerjava.api.model.AccessMode.ro;
-import static dev.snowdrop.KindContainer.getInternalIpAddress;
 import static dev.snowdrop.kind.KindVersion.defaultKubernetesVersion;
 import static dev.snowdrop.kind.PortUtils.getFreePortOnHost;
 import static dev.snowdrop.kind.Utils.*;
-import static java.util.Arrays.asList;
-import static java.util.stream.Collectors.joining;
 
 // Example Subcommand: Create
 @CommandLine.Command(name = "create", description = "Create a new container")
@@ -59,11 +56,15 @@ public class CreateContainer extends Container  implements Callable<Integer> {
                See versions of the kind project: https://github.com/kubernetes-sigs/kind/releases/tag/v0.27.0
              */
 
+            KindKubernetesConfiguration kkc = new KindKubernetesConfiguration();
+
             if (kubeVersion == null) {
                 kubeVersion = defaultKubernetesVersion();
             }
 
             // TODO: Add a method to validate of the kube version matches an existing kind image !
+            kkc.setKubernetesVersion(kubeVersion);
+
 
             // Create the Kind Image Name
             var kindImageName = getKindImageName(kubeVersion);
@@ -108,7 +109,10 @@ public class CreateContainer extends Container  implements Callable<Integer> {
                 LOGGER.info("Container created with ID: {}", containerId);
 
                 InspectContainerResponse containerInfo = dockerClient.inspectContainerCmd(containerId).exec();
-                final Map<String, String> params = prepareTemplateParams(containerInfo);
+                final Map<String, String> params = kkc.prepareTemplateParams(containerInfo);
+
+                // TODO: Add next steps to create the kubernetes cluster, install CNI and storage
+
 
             } catch (InternalServerErrorException e) {
                 if (e.getMessage().startsWith("Status 500: {\"cause\":\"that name is already in use\"")) {
@@ -126,29 +130,5 @@ public class CreateContainer extends Container  implements Callable<Integer> {
             LOGGER.error("Error creating container: {}", e.getMessage(), e);
             return 1;
         }
-    }
-
-    private static Map<String, String> prepareTemplateParams(InspectContainerResponse containerInfo) throws IOException, InterruptedException {
-        final String containerInternalIpAddress = getInternalIpAddress(containerInfo);
-        LOGGER.info("Container internal IP address: {}", containerInternalIpAddress);
-        //LOGGER.info("Container external IP address: {}", getContainerIpAddress());
-        final Set<String> subjectAlternativeNames = new HashSet<>(asList(
-            containerInternalIpAddress,
-            "127.0.0.1",
-            "localhost"
-            //getContainerIpAddress()
-        ));
-        LOGGER.debug("SANs for Kube-API server certificate: {}", subjectAlternativeNames);
-        final Map<String, String> params = new HashMap<String, String>() {{
-            put(".NodeIp", containerInternalIpAddress);
-            //put(".PodSubnet", podSubnet);
-            //put(".ServiceSubnet", serviceSubnet);
-            put(".CertSANs", subjectAlternativeNames.stream().map(san -> "\"" + san + "\"").collect(joining(",")));
-            //put(".KubernetesVersion", version.descriptor().getKubernetesVersion());
-            //put(".MinNodePort", String.valueOf(minNodePort));
-            //put(".MaxNodePort", String.valueOf(maxNodePort));
-        }};
-        //exec("mkdir", "-p", CONTAINTER_WORKDIR);
-        return params;
     }
 }

@@ -16,7 +16,7 @@ public class Utils {
       clusterName: <NODE_NAME>
 
     */
-    private static String NODE_NAME = "KIND";
+    public static String NODE_NAME = "KIND";
 
     /*
 
@@ -28,7 +28,7 @@ public class Utils {
        of the "InitConfiguration" or "JoinConfiguration"
 
     */
-    private static String NODE_IP = "10.88.0.51";
+    public static String NODE_IP = "10.88.0.51";
 
     /*
        Used to configure the Cluster Network
@@ -41,8 +41,8 @@ public class Utils {
          serviceSubnet: <SERVICE_SUBNET>
 
     */
-    private static String POD_SUBNET = "10.244.0.0/16";
-    private static String SERVICE_SUBNET = "10.245.0.0/16";
+    public static String POD_SUBNET = "10.244.0.0/16";
+    public static String SERVICE_SUBNET = "10.245.0.0/16";
 
     /*
       Range of ports to be assigned to a Kubernetes Service and to avoid conflicts with reserved port numbers and other ports on a node.
@@ -53,8 +53,8 @@ public class Utils {
         extraArgs:
           service-node-port-range: MIN_NODE_PORT-MAX_NODE_PORT
     */
-    private static int MIN_NODE_PORT = 30000;
-    private static int MAX_NODE_PORT = 32767;
+    public static int MIN_NODE_PORT = 30000;
+    public static int MAX_NODE_PORT = 32767;
 
     /*
      The controlPlaneEndpoint represents the Kube API endpoint.name followed by the internal Port number
@@ -66,7 +66,7 @@ public class Utils {
        extraArgs:
          service-node-port-range: MIN_NODE_PORT-MAX_NODE_PORT
     */
-    private static String CONTROL_PLANE_ENDPOINT = NODE_NAME + "-control-plane";
+    public static String CONTROL_PLANE_ENDPOINT = NODE_NAME + "-control-plane";
 
     /*
        The KubernetesVersion of the Cluster which maps the kind image tag, version used
@@ -76,7 +76,7 @@ public class Utils {
        kubernetesVersion: v1.32.2
 
     */
-    private static String KUBERNETES_VERSION = "v1.32.2";
+    public static String KUBERNETES_VERSION = "v1.32.2";
 
     /*
         The provider-ip of the Init or Join Configuration
@@ -91,5 +91,5 @@ public class Utils {
             provider-id: <PROVIDER_ID> # podman or docker
 
     */
-    private static String PROVIDER_ID = "kind://podman/my-kind/my-kind-control-plane";
+    public static String PROVIDER_ID = "kind://podman/my-kind/my-kind-control-plane";
 }
