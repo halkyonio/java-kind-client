@@ -129,25 +129,8 @@ public class CreateContainer extends Container implements Callable<Integer> {
                 // Wait for the container to be running and the message to appear
                 waitForLogMessage(containerId, "starting init", 60);
 
-/*                LOGGER.info("- attaching log relay");
-                // grab the logs to stdout.
-                LogConfig lc = new LogConfig("info", true, null);
-                dockerClient.logContainerCmd(containerId)
-                    .withFollowStream(true)
-                    .withStdOut(true)
-                    .withStdErr(true)
-                    .withTimestamps(true)
-                    .exec(new ContainerLogReader(lc.getLogger()));
-
-                // Wait for the container to complete, and retrieve the exit code.
-                int rc = dockerClient
-                    .waitContainerCmd(containerId)
-                    .exec(new WaitContainerResultCallback())
-                    .awaitStatusCode(60, TimeUnit.SECONDS);
-                LOGGER.info("Container started with exit code: {}", rc);*/
-
-                // diagnoseContainerExit(containerId);
-
+                // TODO Find a better way to wait
+                TimeUnit.SECONDS.sleep(20);
 
                 // TODO: Add next steps to create the kubernetes cluster, install CNI and storage
                 final Map<String, String> params = kkc.prepareTemplateParams(containerInfo);
