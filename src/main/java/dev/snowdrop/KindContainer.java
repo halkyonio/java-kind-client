@@ -2,7 +2,6 @@ package dev.snowdrop;
 
 import com.github.dockerjava.api.command.InspectContainerResponse;
 import com.github.dockerjava.api.model.ContainerNetwork;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
