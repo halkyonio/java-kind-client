@@ -12,7 +12,7 @@ apiServer:
     feature-gates: KubeletInUserNamespace=true
     runtime-config: ""
     service-node-port-range: # {{ .MinNodePort }}-{{ .MaxNodePort }}
-clusterName: my-kind # {{ .nodeName }}
+clusterName: {nodeName}
 controlPlaneEndpoint: my-kind-control-plane:6443 # {{ .NodeIp }}:6443
 controllerManager:
   extraArgs:
