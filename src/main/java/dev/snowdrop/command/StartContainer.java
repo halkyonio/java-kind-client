@@ -28,8 +28,7 @@ public class StartContainer extends Container implements Callable<Integer> {
         try {
             var containerId = fetchContainerId(containerIdOrName);
 
-            dockerClient.startContainerCmd(containerId)
-                .exec();
+            dockerClient.startContainerCmd(containerId).exec();
             LOGGER.info("Container started: {}", containerId);
 
             diagnoseContainerExit(containerId);
@@ -60,8 +59,8 @@ public class StartContainer extends Container implements Callable<Integer> {
             LOGGER.info("Exit code: {}", exitCode);
             LOGGER.info("Error: {}", error);
 
-            String logs = getContainerLogs(containerId);
-            LOGGER.info("Container logs:\n{}", logs);
+            //String logs = getContainerLogs(containerId);
+            //LOGGER.info("Container logs:\n{}", logs);
 
         } catch (Exception e) {
             LOGGER.error("Error while diagnosing container {}: {}", containerId, e.getMessage(), e);

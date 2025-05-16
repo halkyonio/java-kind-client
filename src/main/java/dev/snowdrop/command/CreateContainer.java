@@ -1,28 +1,31 @@
 package dev.snowdrop.command;
 
+import com.github.dockerjava.api.async.ResultCallback;
 import com.github.dockerjava.api.command.CreateContainerCmd;
 import com.github.dockerjava.api.command.CreateContainerResponse;
-import com.github.dockerjava.api.command.WaitContainerResultCallback;
+import com.github.dockerjava.api.command.LogContainerCmd;
+import com.github.dockerjava.api.exception.DockerClientException;
 import com.github.dockerjava.api.exception.InternalServerErrorException;
 import com.github.dockerjava.api.exception.NotFoundException;
 import com.github.dockerjava.api.exception.NotModifiedException;
 import com.github.dockerjava.api.model.Bind;
+import com.github.dockerjava.api.model.Frame;
 import com.github.dockerjava.api.model.PortBinding;
 import com.github.dockerjava.api.model.Volume;
 import dev.snowdrop.Container;
 import dev.snowdrop.container.ImageUtils;
-import dev.snowdrop.container.output.ContainerLogReader;
-import dev.snowdrop.container.output.LogConfig;
 import dev.snowdrop.kind.KindKubernetesConfiguration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import picocli.CommandLine;
 
+import java.io.Closeable;
+import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.Callable;
+import java.util.concurrent.TimeUnit;
 
 import static com.github.dockerjava.api.model.AccessMode.ro;
-import static dev.snowdrop.command.StartContainer.diagnoseContainerExit;
 import static dev.snowdrop.kind.KindVersion.defaultKubernetesVersion;
 import static dev.snowdrop.kind.KubernetesConfig.KUBE_API_PORT;
 import static dev.snowdrop.kind.KubernetesConfig.getKindImageName;
@@ -121,10 +124,14 @@ public class CreateContainer extends Container implements Callable<Integer> {
                 LOGGER.info("Starting the container: {}", containerId);
                 dockerClient.startContainerCmd(containerId)
                     .exec();
+                LOGGER.info("Container started: {}", containerId);
 
-                LOGGER.info("- attaching log relay");
+                // Wait for the container to be running and the message to appear
+                waitForLogMessage(containerId, "starting init", 60, TimeUnit.SECONDS);
+
+/*                LOGGER.info("- attaching log relay");
                 // grab the logs to stdout.
-                LogConfig lc = new LogConfig("info",true,null);
+                LogConfig lc = new LogConfig("info", true, null);
                 dockerClient.logContainerCmd(containerId)
                     .withFollowStream(true)
                     .withStdOut(true)
@@ -132,18 +139,23 @@ public class CreateContainer extends Container implements Callable<Integer> {
                     .withTimestamps(true)
                     .exec(new ContainerLogReader(lc.getLogger()));
 
-                // wait for the container to complete, and retrieve the exit code.
-                int rc = dockerClient.waitContainerCmd(containerId).exec(new WaitContainerResultCallback()).awaitStatusCode();
-                LOGGER.info("Container started with exit code: {}", rc);
+                // Wait for the container to complete, and retrieve the exit code.
+                int rc = dockerClient
+                    .waitContainerCmd(containerId)
+                    .exec(new WaitContainerResultCallback())
+                    .awaitStatusCode(60, TimeUnit.SECONDS);
+                LOGGER.info("Container started with exit code: {}", rc);*/
 
-                //
-                diagnoseContainerExit(containerId);
+                // diagnoseContainerExit(containerId);
+
 
                 // TODO: Add next steps to create the kubernetes cluster, install CNI and storage
                 final Map<String, String> params = kkc.prepareTemplateParams(containerInfo);
 
                 return 0;
-
+            } catch (DockerClientException e) {
+                LOGGER.info("Timeout to get the kind container response ...");
+                return 0;
             } catch (NotModifiedException e) {
                 LOGGER.info("Container is already running {}.", containerInfo.getId());
                 return 0;
@@ -164,6 +176,72 @@ public class CreateContainer extends Container implements Callable<Integer> {
             return 1;
         } finally {
             closeDockerClient();
+        }
+    }
+
+    private void waitForLogMessage(String containerId, String expectedMessage, long timeout, TimeUnit timeUnit)
+        throws InterruptedException, IOException {
+        final long startTime = System.currentTimeMillis();
+        final long timeoutMillis = timeUnit.toMillis(timeout);
+        final boolean[] messageFound = {false}; // Use an array to make it effectively final for the anonymous class
+        ResultCallback<Frame> logCallback = null;
+        Closeable logStream = null;
+
+        try {
+            // Use a ResultCallback to asynchronously read the logs
+            logCallback = new ResultCallback.Adapter<Frame>() {
+                @Override
+                public void onNext(Frame frame) {
+                    String logEntry = new String(frame.getPayload());
+                    if (logEntry.contains(expectedMessage)) {
+                        LOGGER.info("Found expected message in logs: {}", logEntry);
+                        messageFound[0] = true; // Update the flag
+                        try {
+                            close(); // Close the callback to stop reading logs
+                        } catch (IOException e) {
+                            LOGGER.warn("Error closing log callback: {}", e.getMessage());
+                        }
+                    }
+                }
+
+                @Override
+                public void onError(Throwable throwable) {
+                    LOGGER.error("Error reading container logs: {}", throwable.getMessage(), throwable);
+                }
+            };
+
+            // Start listening to the logs
+            LogContainerCmd logContainerCmd = dockerClient.logContainerCmd(containerId)
+                .withFollowStream(true) // Keep the connection open to receive new logs
+                .withStdOut(true)
+                .withStdErr(true);
+
+            logStream = logContainerCmd.exec(logCallback);
+
+            // Poll for the message and check for timeout
+            while (!messageFound[0] && System.currentTimeMillis() - startTime < timeoutMillis) {
+                Thread.sleep(500); // Check every 500ms
+            }
+
+            if (!messageFound[0]) {
+                throw new IOException("Timeout waiting for message \"" + expectedMessage + "\" in container logs for container " + containerId);
+            }
+        } finally {
+            // Ensure resources are closed in a finally block
+            if (logStream != null) {
+                try {
+                    logStream.close();
+                } catch (IOException e) {
+                    LOGGER.warn("Error closing log stream: {}", e.getMessage());
+                }
+            }
+            if (logCallback != null) {
+                try {
+                    logCallback.close();
+                } catch (IOException e) {
+                    LOGGER.warn("Error closing log callback: {}", e.getMessage());
+                }
+            }
         }
     }
 
