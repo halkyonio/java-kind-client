@@ -10,8 +10,9 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
+import static dev.snowdrop.Container.execInContainer;
 import static dev.snowdrop.KindContainer.getInternalIpAddress;
-import static dev.snowdrop.kind.Utils.*;
+import static dev.snowdrop.kind.KubernetesConfig.*;
 import static java.util.Arrays.asList;
 import static java.util.stream.Collectors.joining;
 
@@ -43,11 +44,11 @@ public class KindKubernetesConfiguration {
             put(".PodSubnet", POD_SUBNET);
             put(".ServiceSubnet", SERVICE_SUBNET);
             put(".CertSANs", subjectAlternativeNames.stream().map(san -> "\"" + san + "\"").collect(joining(",")));
-            put(".KubernetesVersion",kubernetesVersion);
+            put(".KubernetesVersion", kubernetesVersion);
             put(".MinNodePort", String.valueOf(MIN_NODE_PORT));
             put(".MaxNodePort", String.valueOf(MAX_NODE_PORT));
         }};
-        //exec("mkdir", "-p", CONTAINTER_WORKDIR);
+        execInContainer(new String[]{"mkdir", "-p", CONTAINER_WORKDIR});
         return params;
     }
 

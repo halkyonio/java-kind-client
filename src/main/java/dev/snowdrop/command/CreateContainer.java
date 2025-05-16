@@ -20,11 +20,11 @@ import java.util.concurrent.Callable;
 import static com.github.dockerjava.api.model.AccessMode.ro;
 import static dev.snowdrop.kind.KindVersion.defaultKubernetesVersion;
 import static dev.snowdrop.kind.PortUtils.getFreePortOnHost;
-import static dev.snowdrop.kind.Utils.*;
+import static dev.snowdrop.kind.KubernetesConfig.*;
 
 // Example Subcommand: Create
 @CommandLine.Command(name = "create", description = "Create a new container")
-public class CreateContainer extends Container  implements Callable<Integer> {
+public class CreateContainer extends Container implements Callable<Integer> {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(CreateContainer.class);
     private String volumeName = "kindcontainer-" + UUID.randomUUID();

@@ -1,6 +1,8 @@
 package dev.snowdrop.kind;
 
-public class Utils {
+public class KubernetesConfig {
+
+    public static final String CONTAINER_WORKDIR = "/kindcontainer";
 
     public static String KUBE_API_PORT = "6443";
 
