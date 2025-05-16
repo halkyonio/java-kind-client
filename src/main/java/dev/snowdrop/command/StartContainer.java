@@ -28,25 +28,12 @@ public class StartContainer extends Container implements Callable<Integer> {
         try {
             var containerId = fetchContainerId(containerIdOrName);
 
-            var containerInfo = dockerClient.inspectContainerCmd(containerId).exec();
-            LOGGER.info("Container state: {}", containerInfo.getState().getStatus());
-            String status = containerInfo.getState().getStatus(); // "exited", "running", etc.
-            Integer exitCode = containerInfo.getState().getExitCode();
-            String error = containerInfo.getState().getError(); // May contain useful error text
-            String startedAt = containerInfo.getState().getStartedAt();
-            String finishedAt = containerInfo.getState().getFinishedAt();
-
-            LOGGER.info("Container status: {}", status);
-            LOGGER.info("Exit code: {}", exitCode);
-            LOGGER.info("Error message: {}", error);
-            LOGGER.info("Started at: {}, Finished at: {}", startedAt, finishedAt);
-
-            diagnoseContainerExit(containerId);
-
             dockerClient.startContainerCmd(containerId)
                 .exec();
             LOGGER.info("Container started: {}", containerId);
-            closeDockerClient();
+
+            diagnoseContainerExit(containerId);
+
             return 0;
         } catch (NotModifiedException e) {
             LOGGER.info("Container is already running {}.", containerIdOrName);
@@ -57,10 +44,12 @@ public class StartContainer extends Container implements Callable<Integer> {
         } catch (Exception e) {
             LOGGER.error("Error starting the container {}: {}", containerIdOrName, e.getMessage(), e);
             return 1;
+        } finally {
+            closeDockerClient();
         }
     }
 
-    public void diagnoseContainerExit(String containerId) {
+    public static void diagnoseContainerExit(String containerId) {
         try {
             var info = dockerClient.inspectContainerCmd(containerId).exec();
             var exitCode = info.getState().getExitCode();
@@ -79,7 +68,7 @@ public class StartContainer extends Container implements Callable<Integer> {
         }
     }
 
-    public String getContainerLogs(String containerId) throws InterruptedException {
+    public static String getContainerLogs(String containerId) throws InterruptedException {
         StringBuilder logBuilder = new StringBuilder();
 
         dockerClient.logContainerCmd(containerId)
@@ -91,7 +80,7 @@ public class StartContainer extends Container implements Callable<Integer> {
                 public void onNext(Frame frame) {
                     logBuilder.append(new String(frame.getPayload()));
                 }
-            }).awaitCompletion(10, TimeUnit.SECONDS); // Wait for log stream to complete
+            }).awaitCompletion(10, TimeUnit.SECONDS);
 
         return logBuilder.toString();
     }

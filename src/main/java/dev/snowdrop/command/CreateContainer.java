@@ -2,13 +2,17 @@ package dev.snowdrop.command;
 
 import com.github.dockerjava.api.command.CreateContainerCmd;
 import com.github.dockerjava.api.command.CreateContainerResponse;
-import com.github.dockerjava.api.command.InspectContainerResponse;
+import com.github.dockerjava.api.command.WaitContainerResultCallback;
 import com.github.dockerjava.api.exception.InternalServerErrorException;
+import com.github.dockerjava.api.exception.NotFoundException;
+import com.github.dockerjava.api.exception.NotModifiedException;
 import com.github.dockerjava.api.model.Bind;
 import com.github.dockerjava.api.model.PortBinding;
 import com.github.dockerjava.api.model.Volume;
 import dev.snowdrop.Container;
 import dev.snowdrop.container.ImageUtils;
+import dev.snowdrop.container.output.ContainerLogReader;
+import dev.snowdrop.container.output.LogConfig;
 import dev.snowdrop.kind.KindKubernetesConfiguration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -18,9 +22,11 @@ import java.util.*;
 import java.util.concurrent.Callable;
 
 import static com.github.dockerjava.api.model.AccessMode.ro;
+import static dev.snowdrop.command.StartContainer.diagnoseContainerExit;
 import static dev.snowdrop.kind.KindVersion.defaultKubernetesVersion;
+import static dev.snowdrop.kind.KubernetesConfig.KUBE_API_PORT;
+import static dev.snowdrop.kind.KubernetesConfig.getKindImageName;
 import static dev.snowdrop.kind.PortUtils.getFreePortOnHost;
-import static dev.snowdrop.kind.KubernetesConfig.*;
 
 // Example Subcommand: Create
 @CommandLine.Command(name = "create", description = "Create a new container")
@@ -80,7 +86,7 @@ public class CreateContainer extends Container implements Callable<Integer> {
             }
 
             ccc.withEntrypoint("/usr/local/bin/entrypoint", "/sbin/init");
-            ccc.getHostConfig().withPortBindings(PortBinding.parse(String.format("%s:%s", getFreePortOnHost(),KUBE_API_PORT)));
+            ccc.getHostConfig().withPortBindings(PortBinding.parse(String.format("%s:%s", getFreePortOnHost(), KUBE_API_PORT)));
 
             final Volume varVolume = new Volume("/var/lib/containerd");
             final Volume modVolume = new Volume("/lib/modules");
@@ -108,12 +114,42 @@ public class CreateContainer extends Container implements Callable<Integer> {
                 String containerId = containerResponse.getId();
                 LOGGER.info("Container created with ID: {}", containerId);
 
-                InspectContainerResponse containerInfo = dockerClient.inspectContainerCmd(containerId).exec();
-                final Map<String, String> params = kkc.prepareTemplateParams(containerInfo);
+                // Inspect the Container
+                containerInfo = dockerClient.inspectContainerCmd(containerId).exec();
+
+                // Start the container and examine its status and log
+                LOGGER.info("Starting the container: {}", containerId);
+                dockerClient.startContainerCmd(containerId)
+                    .exec();
+
+                LOGGER.info("- attaching log relay");
+                // grab the logs to stdout.
+                LogConfig lc = new LogConfig("info",true,null);
+                dockerClient.logContainerCmd(containerId)
+                    .withFollowStream(true)
+                    .withStdOut(true)
+                    .withStdErr(true)
+                    .withTimestamps(true)
+                    .exec(new ContainerLogReader(lc.getLogger()));
+
+                // wait for the container to complete, and retrieve the exit code.
+                int rc = dockerClient.waitContainerCmd(containerId).exec(new WaitContainerResultCallback()).awaitStatusCode();
+                LOGGER.info("Container started with exit code: {}", rc);
+
+                //
+                diagnoseContainerExit(containerId);
 
                 // TODO: Add next steps to create the kubernetes cluster, install CNI and storage
+                final Map<String, String> params = kkc.prepareTemplateParams(containerInfo);
 
+                return 0;
 
+            } catch (NotModifiedException e) {
+                LOGGER.info("Container is already running {}.", containerInfo.getId());
+                return 0;
+            } catch (NotFoundException e) {
+                LOGGER.error("Container not found: " + containerInfo.getId());
+                return 1;
             } catch (InternalServerErrorException e) {
                 if (e.getMessage().startsWith("Status 500: {\"cause\":\"that name is already in use\"")) {
                     LOGGER.error("Container with the same name already exist: {}", containerName);
@@ -121,14 +157,14 @@ public class CreateContainer extends Container implements Callable<Integer> {
                     var msg = e.getMessage();
                     LOGGER.error(e.getMessage());
                 }
+                return 1;
             }
-
-            closeDockerClient();
-            return 0;
-
         } catch (Exception e) {
-            LOGGER.error("Error creating container: {}", e.getMessage(), e);
+            LOGGER.error("Error starting the container {}: {}", containerInfo.getId(), e.getMessage(), e);
             return 1;
+        } finally {
+            closeDockerClient();
         }
     }
+
 }
