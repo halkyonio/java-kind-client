@@ -5,17 +5,14 @@ import com.github.dockerjava.api.exception.NotModifiedException;
 import com.github.dockerjava.api.model.Frame;
 import com.github.dockerjava.core.command.LogContainerResultCallback;
 import dev.snowdrop.Container;
-import dev.snowdrop.MyIDP;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import picocli.CommandLine;
 
-import java.io.InputStream;
-import java.nio.charset.StandardCharsets;
 import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
 
-import static dev.snowdrop.ContainerUtils.fetchContainerId;
+import static dev.snowdrop.container.ContainerUtils.fetchContainerId;
 
 @CommandLine.Command(name = "start", description = "Start a running container")
 public class StartContainer extends Container implements Callable<Integer> {

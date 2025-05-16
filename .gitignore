@@ -2,3 +2,4 @@
 db/
 target/
 .DS_Store
+/tmp/

@@ -18,7 +18,7 @@ import picocli.CommandLine.Option;
         StartContainer.class,
         DeleteContainer.class
     },
-    description = "A simple Docker CLI using Java and Picocli")
+    description = "A Kind CLI to manage a local kubernetes cluster")
 public class MyIDP extends Container implements Callable<Integer> {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(MyIDP.class);

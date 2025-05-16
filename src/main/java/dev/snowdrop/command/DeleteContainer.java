@@ -1,14 +1,13 @@
 package dev.snowdrop.command;
 
 import dev.snowdrop.Container;
-import dev.snowdrop.MyIDP;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import picocli.CommandLine;
 
 import java.util.concurrent.Callable;
 
-import static dev.snowdrop.ContainerUtils.fetchContainerId;
+import static dev.snowdrop.container.ContainerUtils.fetchContainerId;
 
 @CommandLine.Command(name = "delete", description = "Delete a container")
 public class DeleteContainer extends Container implements Callable<Integer> {

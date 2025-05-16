@@ -2,41 +2,45 @@ package dev.snowdrop.command;
 
 import com.github.dockerjava.api.command.CreateContainerCmd;
 import com.github.dockerjava.api.command.CreateContainerResponse;
+import com.github.dockerjava.api.command.InspectContainerResponse;
 import com.github.dockerjava.api.exception.InternalServerErrorException;
-import com.github.dockerjava.api.model.AccessMode;
 import com.github.dockerjava.api.model.Bind;
 import com.github.dockerjava.api.model.PortBinding;
 import com.github.dockerjava.api.model.Volume;
 import dev.snowdrop.Container;
-import dev.snowdrop.ImageUtils;
+import dev.snowdrop.container.ImageUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import picocli.CommandLine;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.io.IOException;
+import java.util.*;
 import java.util.concurrent.Callable;
+
+import static com.github.dockerjava.api.model.AccessMode.ro;
+import static dev.snowdrop.KindContainer.getInternalIpAddress;
+import static dev.snowdrop.kind.KindVersion.defaultKubernetesVersion;
+import static dev.snowdrop.kind.PortUtils.getFreePortOnHost;
+import static dev.snowdrop.kind.Utils.*;
+import static java.util.Arrays.asList;
+import static java.util.stream.Collectors.joining;
 
 // Example Subcommand: Create
 @CommandLine.Command(name = "create", description = "Create a new container")
 public class CreateContainer extends Container  implements Callable<Integer> {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(CreateContainer.class);
-    private static final String KIND_IMAGE = "kindest/node:v1.29.14";
+    private String volumeName = "kindcontainer-" + UUID.randomUUID();
+    private static final Map<String, String> TMP_FILESYSTEMS = new HashMap<String, String>() {{
+        put("/run", "rw");
+        put("/tmp", "rw");
+    }};
 
     @CommandLine.Parameters(index = "0", description = "The image name to use for the container")
     String containerName;
 
-    @CommandLine.Option(names = {"-i", "--image"}, description = "The name of the image")
-    String imageName;
-
-    @CommandLine.Option(names = {"-d", "--detach"}, description = "Run the container in detached mode")
-    boolean detach = false;
-
-        /*
-        @Option(names = {"--cmd"}, description = "Command to execute in the container", arity = "1..*")
-        List<String> command;
-        */
+    @CommandLine.Option(names = {"-k", "--kube-version"}, description = "The version of the kubernetes cluster to use")
+    String kubeVersion;
 
     @CommandLine.Option(names = {"-p", "--port"}, description = "Bind a container's port(s) to the host", arity = "1..*")
     List<String> ports;  // e.g., "8080:80", "443:443/tcp"
@@ -50,85 +54,62 @@ public class CreateContainer extends Container  implements Callable<Integer> {
     @Override
     public Integer call() {
         try {
-            // Check if image name has been defined
-            if (imageName == null) {
-                imageName = KIND_IMAGE;
+            /*
+               Use the default kubernetes version if no version has been specified as: 1.29.14, 1.30.10, 1.31.6, 1.32.2
+               See versions of the kind project: https://github.com/kubernetes-sigs/kind/releases/tag/v0.27.0
+             */
+
+            if (kubeVersion == null) {
+                kubeVersion = defaultKubernetesVersion();
             }
 
+            // TODO: Add a method to validate of the kube version matches an existing kind image !
+
+            // Create the Kind Image Name
+            var kindImageName = getKindImageName(kubeVersion);
+
             // Pull image
-            ImageUtils.pullImage(dockerClient, imageName);
+            ImageUtils.pullImage(dockerClient, kindImageName);
 
             // Build the command
-            CreateContainerCmd ccc = dockerClient.createContainerCmd(imageName);
+            CreateContainerCmd ccc = dockerClient.createContainerCmd(kindImageName);
 
             if (containerName != null) {
                 ccc.withName(containerName);
             }
 
             ccc.withEntrypoint("/usr/local/bin/entrypoint", "/sbin/init");
-            ccc.getHostConfig().withPortBindings(PortBinding.parse("49363:6443"));
+            ccc.getHostConfig().withPortBindings(PortBinding.parse(String.format("%s:%s", getFreePortOnHost(),KUBE_API_PORT)));
 
-                /*
-                if (ports != null && !ports.isEmpty()) {
-                    List<ExposedPort> exposedPorts = new ArrayList<>();
-                    List<PortBinding> portBindings = new ArrayList<>();
-                    for (String portMapping : ports) {
-                        String[] parts = portMapping.split(":");
-                        if (parts.length > 0) {
-                            String hostPort = parts[0];
-                            String containerPort = parts[1];
-                            String protocol = "tcp"; // Default protocol
+            final Volume varVolume = new Volume("/var/lib/containerd");
+            final Volume modVolume = new Volume("/lib/modules");
+            final List<Volume> volumes = new ArrayList<>();
+            volumes.add(varVolume);
+            volumes.add(modVolume);
+            ccc.withVolumes(volumes);
 
-                            if (containerPort.contains("/")) {
-                                String[] portParts = containerPort.split("/");
-                                containerPort = portParts[0];
-                                protocol = portParts[1];
-                            }
+            final List<Bind> binds = new ArrayList<>();
+            binds.add(new Bind(volumeName, varVolume, true));
+            binds.add(new Bind("/lib/modules", modVolume, ro));
+            ccc.withBinds(binds);
 
-                            ExposedPort exposedPort = new ExposedPort(Integer.parseInt(containerPort), Protocol.valueOf(protocol.toUpperCase()));
-                            exposedPorts.add(exposedPort);
-
-                            if(parts.length > 1) {
-                                PortBinding portBinding = new PortBinding(HostConfig.newPortBindings(hostPort),exposedPort);
-                                portBindings.add(portBinding);
-                            } else {
-                                PortBinding portBinding = new PortBinding(HostConfig.newPortBindings(hostPort),exposedPort);
-                                portBindings.add(portBinding);
-                            }
-                        }
-                    }
-                    ccc.withExposedPorts(exposedPorts.toArray(new ExposedPort[0]));
-                    ccc.withPortBindings(portBindings.toArray(new PortBinding[0]));
-                }
-                */
-
-
-            if (volumes != null && !volumes.isEmpty()) {
-                List<Bind> binds = new ArrayList<>();
-                for (String volumeMapping : volumes) {
-                    String[] parts = volumeMapping.split(":");
-                    if (parts.length > 1) {
-                        String hostPath = parts[0];
-                        String containerPath = parts[1];
-                        String mode = "rw"; // Default mode
-                        if (parts.length > 2) {
-                            mode = parts[2];
-                        }
-                        binds.add(new Bind(hostPath, new Volume(containerPath), AccessMode.valueOf(mode.toUpperCase())));
-                    }
-                }
-                ccc.withBinds(binds.toArray(new Bind[0]));
-            }
+            ccc.getHostConfig().withPrivileged(true);
+            ccc.getHostConfig().withTmpFs(TMP_FILESYSTEMS);
 
             if (environment != null && !environment.isEmpty()) {
                 ccc.withEnv(environment.toArray(new String[0]));
             }
+            ccc.withEnv("KUBECONFIG", "/etc/kubernetes/admin.conf");
 
             CreateContainerResponse containerResponse;
             try {
-                 containerResponse = ccc.exec();
+                containerResponse = ccc.exec();
                 String containerId = containerResponse.getId();
                 LOGGER.info("Container created with ID: {}", containerId);
+
+                InspectContainerResponse containerInfo = dockerClient.inspectContainerCmd(containerId).exec();
+                final Map<String, String> params = prepareTemplateParams(containerInfo);
+
             } catch (InternalServerErrorException e) {
                 if (e.getMessage().startsWith("Status 500: {\"cause\":\"that name is already in use\"")) {
                     LOGGER.error("Container with the same name already exist: {}", containerName);
@@ -145,5 +126,29 @@ public class CreateContainer extends Container  implements Callable<Integer> {
             LOGGER.error("Error creating container: {}", e.getMessage(), e);
             return 1;
         }
+    }
+
+    private static Map<String, String> prepareTemplateParams(InspectContainerResponse containerInfo) throws IOException, InterruptedException {
+        final String containerInternalIpAddress = getInternalIpAddress(containerInfo);
+        LOGGER.info("Container internal IP address: {}", containerInternalIpAddress);
+        //LOGGER.info("Container external IP address: {}", getContainerIpAddress());
+        final Set<String> subjectAlternativeNames = new HashSet<>(asList(
+            containerInternalIpAddress,
+            "127.0.0.1",
+            "localhost"
+            //getContainerIpAddress()
+        ));
+        LOGGER.debug("SANs for Kube-API server certificate: {}", subjectAlternativeNames);
+        final Map<String, String> params = new HashMap<String, String>() {{
+            put(".NodeIp", containerInternalIpAddress);
+            //put(".PodSubnet", podSubnet);
+            //put(".ServiceSubnet", serviceSubnet);
+            put(".CertSANs", subjectAlternativeNames.stream().map(san -> "\"" + san + "\"").collect(joining(",")));
+            //put(".KubernetesVersion", version.descriptor().getKubernetesVersion());
+            //put(".MinNodePort", String.valueOf(minNodePort));
+            //put(".MaxNodePort", String.valueOf(maxNodePort));
+        }};
+        //exec("mkdir", "-p", CONTAINTER_WORKDIR);
+        return params;
     }
 }

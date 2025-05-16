@@ -1,0 +1,93 @@
+apiVersion: kubeadm.k8s.io/v1beta3
+kind: ClusterConfiguration
+apiServer:
+  certSANs:
+  - localhost
+  - 127.0.0.1
+  # OR [{{ .CertSANs }}]
+  extraArgs:
+    # List of features: https://kubernetes.io/docs/reference/command-line-tools-reference/feature-gates/
+    # KubeletInUserNamespace=true => Enables support for running kubelet in a user namespace.
+    # See how to: https://kubernetes.io/docs/tasks/administer-cluster/kubelet-in-userns/
+    feature-gates: KubeletInUserNamespace=true
+    runtime-config: ""
+    service-node-port-range: # {{ .MinNodePort }}-{{ .MaxNodePort }}
+clusterName: my-kind # {{ .nodeName }}
+controlPlaneEndpoint: my-kind-control-plane:6443 # {{ .NodeIp }}:6443
+controllerManager:
+  extraArgs:
+    enable-hostpath-provisioner: "true"
+    feature-gates: KubeletInUserNamespace=true
+kubernetesVersion: v1.32.2 # {{ .KubernetesVersion }}
+networking:
+  podSubnet: 10.244.0.0/16 # {{ .PodSubnet }}
+  serviceSubnet: 10.96.0.0/16 # {{ .ServiceSubnet }}
+scheduler:
+  extraArgs:
+    feature-gates: KubeletInUserNamespace=true
+---
+apiVersion: kubeadm.k8s.io/v1beta3
+bootstrapTokens:
+- token: abcdef.0123456789abcdef
+kind: InitConfiguration
+localAPIEndpoint:
+  advertiseAddress: 10.88.0.51 # {{ .NodeIp }}
+  bindPort: 6443
+nodeRegistration:
+  criSocket: unix:///run/containerd/containerd.sock
+  kubeletExtraArgs:
+    fail-swap-on: "false"
+    node-ip: 10.88.0.51 # {{ .NodeIp }}
+    node-labels: ""
+    provider-id: kind://podman/my-kind/my-kind-control-plane
+    # provider-id: kind://docker/kind/kindcontainer-control-plane
+# What do => ?
+# skipPhases:
+# - preflight
+---
+apiVersion: kubeadm.k8s.io/v1beta3
+controlPlane:
+  localAPIEndpoint:
+    advertiseAddress: 10.88.0.51 # {{ .NodeIp }}
+    bindPort: 6443
+discovery:
+  bootstrapToken:
+    apiServerEndpoint: my-kind-control-plane:6443
+    token: abcdef.0123456789abcdef
+    unsafeSkipCAVerification: true
+kind: JoinConfiguration
+nodeRegistration:
+  criSocket: unix:///run/containerd/containerd.sock
+  kubeletExtraArgs:
+    fail-swap-on: "false"
+    node-ip: 10.88.0.51 # {{ .NodeIp }}
+    node-labels: ""
+    provider-id: kind://podman/my-kind/my-kind-control-plane
+    # provider-id: kind://docker/kind/kindcontainer-control-plane
+skipPhases:
+- preflight
+---
+apiVersion: kubelet.config.k8s.io/v1beta1
+cgroupDriver: systemd
+cgroupRoot: /kubelet
+evictionHard:
+  imagefs.available: 0%
+  nodefs.available: 0%
+  nodefs.inodesFree: 0%
+failSwapOn: false
+featureGates:
+  KubeletInUserNamespace: true
+imageGCHighThresholdPercent: 100
+kind: KubeletConfiguration
+---
+apiVersion: kubeproxy.config.k8s.io/v1alpha1
+conntrack:
+  maxPerCore: 0
+  tcpCloseWaitTimeout: 0s
+  tcpEstablishedTimeout: 0s
+featureGates:
+  KubeletInUserNamespace: true
+iptables:
+  minSyncPeriod: 1s
+kind: KubeProxyConfiguration
+mode: iptables
