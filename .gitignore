@@ -3,3 +3,4 @@ db/
 target/
 .DS_Store
 /tmp/
+/kind-client.iml

@@ -1,3 +1,4 @@
+{@dev.snowdrop.test.KubeAdmConfig config}
 apiVersion: kubeadm.k8s.io/v1beta3
 kind: ClusterConfiguration
 apiServer:
@@ -12,7 +13,7 @@ apiServer:
     feature-gates: KubeletInUserNamespace=true
     runtime-config: ""
     service-node-port-range: # {{ .MinNodePort }}-{{ .MaxNodePort }}
-clusterName: {nodeName}
+clusterName: {config.nodeName}
 controlPlaneEndpoint: my-kind-control-plane:6443 # {{ .NodeIp }}:6443
 controllerManager:
   extraArgs:
