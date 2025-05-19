@@ -33,6 +33,7 @@ public class KindKubernetesConfiguration {
     public KubeAdmConfig prepareTemplateParams(InspectContainerResponse containerInfo) throws IOException, InterruptedException {
         KubeAdmConfig cfg = new KubeAdmConfig();
         cfg.setNodeIp(getInternalIpAddress(containerInfo));
+        cfg.setBindPort("6443");
         LOGGER.info("Container internal IP address: {}", cfg.getNodeIp());
         cfg.setPodSubnet(POD_SUBNET);
         cfg.setServiceSubnet(SERVICE_SUBNET);

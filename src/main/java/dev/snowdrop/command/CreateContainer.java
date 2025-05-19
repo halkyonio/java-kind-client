@@ -3,6 +3,7 @@ package dev.snowdrop.command;
 import com.github.dockerjava.api.async.ResultCallback;
 import com.github.dockerjava.api.command.CreateContainerCmd;
 import com.github.dockerjava.api.command.CreateContainerResponse;
+import com.github.dockerjava.api.command.InspectContainerResponse;
 import com.github.dockerjava.api.exception.DockerClientException;
 import com.github.dockerjava.api.exception.InternalServerErrorException;
 import com.github.dockerjava.api.exception.NotFoundException;
@@ -15,16 +16,20 @@ import dev.snowdrop.Container;
 import dev.snowdrop.config.model.qute.KubeAdmConfig;
 import dev.snowdrop.container.ImageUtils;
 import dev.snowdrop.kind.KindKubernetesConfiguration;
-import io.quarkus.qute.Engine;
 import io.quarkus.qute.Location;
 import io.quarkus.qute.Template;
 import jakarta.inject.Inject;
+import org.apache.commons.compress.archivers.tar.TarArchiveOutputStream;
+import org.apache.commons.compress.utils.IOUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.testcontainers.images.builder.Transferable;
 import picocli.CommandLine;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.io.PipedInputStream;
+import java.io.PipedOutputStream;
 import java.util.*;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
@@ -36,7 +41,6 @@ import static dev.snowdrop.kind.KubernetesConfig.*;
 import static dev.snowdrop.kind.PortUtils.getFreePortOnHost;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static java.util.Arrays.asList;
 
 // Example Subcommand: Create
 @CommandLine.Command(name = "create", description = "Create a new container")
@@ -148,7 +152,8 @@ public class CreateContainer extends Container implements Callable<Integer> {
                 containerInfo = dockerClient.inspectContainerCmd(containerId).exec();
 
                 // Create the kubeAdmConfig file and run kubeadm init
-                kubeadmInit(kkc.prepareTemplateParams(containerInfo));
+                kubeadmInit(containerInfo, kkc.prepareTemplateParams(containerInfo));
+                // TODO: Copy cp /etc/kubernetes/admin.conf ~/.kube/config
 
                 return 0;
             } catch (DockerClientException e) {
@@ -177,14 +182,12 @@ public class CreateContainer extends Container implements Callable<Integer> {
         }
     }
 
-    private void kubeadmInit(KubeAdmConfig kubeAdmConfig) throws IOException, InterruptedException {
+    private void kubeadmInit(InspectContainerResponse containerInfo, KubeAdmConfig kubeAdmConfig) throws IOException, InterruptedException {
         String result;
+        String kubeAdmConfigPath = format("%s/%s", CONTAINER_WORKDIR, "kube-admin.conf");
         // Render the template => KubeAdminConfig YAML and write it to the kind container
         try {
             LOGGER.info("Render the KubeAdminConfig template ...");
-            /*Engine engine = Engine.builder().addDefaults().build();
-            String kubeAdmYaml = new String(this.getClass().getClassLoader().getResourceAsStream("templates/kubeadm.yaml").readAllBytes());
-            Template kubeAdmConfigTmpl = engine.parse(kubeAdmYaml);*/
             result = kubeadm.data("cfg", kubeAdmConfig).render();
         } catch (Exception e) {
             throw new RuntimeException(e);
@@ -192,22 +195,23 @@ public class CreateContainer extends Container implements Callable<Integer> {
 
         LOGGER.info("KubeAdmConfig file: {}", result);
 
-        LOGGER.info("Writing container file: {}", "fname");
-        //container.copyFileToContainer(Transferable.of(result.getBytes(UTF_8), fname));
+        LOGGER.info("Writing container file: {}", kubeAdmConfigPath);
+/*        LOGGER.info("Is container running: {}", bc.isRunning());
+        LOGGER.info("Is container created: {}", bc.isCreated());
+        LOGGER.info("Is container healthy: {}", bc.isHealthy());*/
+
+        copyFileToContainer(containerInfo, Transferable.of(result.getBytes(UTF_8)), kubeAdmConfigPath);
 
         LOGGER.info("Execute command: {}", "kubeadm init ...");
         try {
-            //final String kubeadmResource = getKubeadmResource();
-            //final String kubeadmConfigPath = format("%s/%s", CONTAINER_WORKDIR, kubeadmResource);
-            //final String kubeadmConfig = templateResource(this, kubeadmResource, params, kubeadmConfigPath);
             execInContainer(
                 "kubeadm", "init",
                 "--skip-phases=preflight",
                 // specify our generated config file
-                "--config=" + result,
+                "--config=" + kubeAdmConfigPath,
                 "--skip-token-print",
                 // Use predetermined node name
-                "--node-name=" + NODE_NAME,
+                "--node-name=" + kubeAdmConfig.getNodeName(),
                 // increase verbosity for debugging
                 "--v=6");
         } catch (final RuntimeException | IOException | InterruptedException e) {
@@ -249,6 +253,41 @@ public class CreateContainer extends Container implements Callable<Integer> {
             if (!messageAppeared) {
                 throw new RuntimeException("Timeout: Expected log message not found within " + timeoutSeconds + " seconds.");
             }
+        }
+    }
+
+    public void copyFileToContainer(InspectContainerResponse containerInfo, Transferable transferable, String containerPath) {
+        if (containerInfo.getId() == null) {
+            throw new IllegalStateException("copyFileToContainer can only be used with created / running container");
+        }
+
+        try (
+            PipedOutputStream pipedOutputStream = new PipedOutputStream();
+            PipedInputStream pipedInputStream = new PipedInputStream(pipedOutputStream);
+            TarArchiveOutputStream tarArchive = new TarArchiveOutputStream(pipedOutputStream)
+        ) {
+            Thread thread = new Thread(() -> {
+                try {
+                    tarArchive.setLongFileMode(TarArchiveOutputStream.LONGFILE_POSIX);
+                    tarArchive.setBigNumberMode(TarArchiveOutputStream.BIGNUMBER_POSIX);
+
+                    transferable.transferTo(tarArchive, containerPath);
+                } finally {
+                    IOUtils.closeQuietly(tarArchive);
+                }
+            });
+
+            thread.start();
+
+            dockerClient
+                .copyArchiveToContainerCmd(containerInfo.getId())
+                .withTarInputStream(pipedInputStream)
+                .withRemotePath("/")
+                .exec();
+
+            thread.join();
+        } catch (InterruptedException | IOException e) {
+            throw new RuntimeException(e);
         }
     }
 

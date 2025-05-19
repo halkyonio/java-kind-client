@@ -4,24 +4,23 @@ apiServer:
   certSANs:
   - localhost
   - 127.0.0.1
-  # OR [{{ .CertSANs }}]
   extraArgs:
     # List of features: https://kubernetes.io/docs/reference/command-line-tools-reference/feature-gates/
     # KubeletInUserNamespace=true => Enables support for running kubelet in a user namespace.
     # See how to: https://kubernetes.io/docs/tasks/administer-cluster/kubelet-in-userns/
     feature-gates: KubeletInUserNamespace=true
     runtime-config: ""
-    service-node-port-range: {cfg.minNodePort}-{cfg.maxNodePort}  # {{ .MinNodePort }}-{{ .MaxNodePort }} => 30000-32767
+    service-node-port-range: {cfg.minNodePort}-{cfg.maxNodePort}
 clusterName: {cfg.nodeName}
-controlPlaneEndpoint: {cfg.nodeIp}:{cfg.bindPort} # {{ .NodeIp }}:6443 => 10.0.58.1:6443
+controlPlaneEndpoint: {cfg.nodeIp}:{cfg.bindPort}
 controllerManager:
   extraArgs:
     enable-hostpath-provisioner: "true"
     feature-gates: KubeletInUserNamespace=true
-kubernetesVersion: {cfg.kubernetesVersion} # {{ .KubernetesVersion }} => v1.32.2
+kubernetesVersion: {cfg.kubernetesVersion}
 networking:
-  podSubnet: {cfg.podSubnet} # {{ .PodSubnet }} => 10.244.0.0/16
-  serviceSubnet: {cfg.serviceSubnet} # {{ .ServiceSubnet }} => 10.96.0.0/16
+  podSubnet: {cfg.podSubnet}
+  serviceSubnet: {cfg.serviceSubnet}
 scheduler:
   extraArgs:
     feature-gates: KubeletInUserNamespace=true
@@ -31,28 +30,24 @@ bootstrapTokens:
 - token: abcdef.0123456789abcdef
 kind: InitConfiguration
 localAPIEndpoint:
-  advertiseAddress: {cfg.nodeIp} # {{ .NodeIp }} => 10.88.0.51
-  bindPort: {cfg.bindPort} # 6443
+  advertiseAddress: {cfg.nodeIp}
+  bindPort: {cfg.bindPort}
 nodeRegistration:
   criSocket: unix:///run/containerd/containerd.sock
   kubeletExtraArgs:
     fail-swap-on: "false"
-    node-ip: {cfg.nodeIp} # {{ .NodeIp }} => 10.88.0.51
+    node-ip: {cfg.nodeIp}
     node-labels: ""
     provider-id: kind://podman/{cfg.nodeName}/{cfg.nodeName}-control-plane
-    # provider-id: kind://docker/kind/kindcontainer-control-plane
-# What do => ?
-# skipPhases:
-# - preflight
 ---
 apiVersion: kubeadm.k8s.io/v1beta3
 controlPlane:
   localAPIEndpoint:
-    advertiseAddress: {cfg.nodeIp} # {{ .NodeIp }} => 10.88.0.51
-    bindPort: {cfg.bindPort} # 6443
+    advertiseAddress: {cfg.nodeIp}
+    bindPort: {cfg.bindPort}
 discovery:
   bootstrapToken:
-    apiServerEndpoint: {cfg.nodeName}-control-plane:{cfg.bindPort} # 6443
+    apiServerEndpoint: {cfg.nodeName}-control-plane:{cfg.bindPort}
     token: abcdef.0123456789abcdef
     unsafeSkipCAVerification: true
 kind: JoinConfiguration
@@ -60,10 +55,9 @@ nodeRegistration:
   criSocket: unix:///run/containerd/containerd.sock
   kubeletExtraArgs:
     fail-swap-on: "false"
-    node-ip: {cfg.nodeIp} # {{ .NodeIp }} => 10.88.0.51
+    node-ip: {cfg.nodeIp}
     node-labels: ""
     provider-id: kind://podman/{cfg.nodeName}/{cfg.nodeName}-control-plane
-    # provider-id: kind://docker/kind/kindcontainer-control-plane
 skipPhases:
 - preflight
 ---
