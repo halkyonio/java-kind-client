@@ -12,8 +12,11 @@ import com.github.dockerjava.api.model.Frame;
 import com.github.dockerjava.api.model.PortBinding;
 import com.github.dockerjava.api.model.Volume;
 import dev.snowdrop.Container;
+import dev.snowdrop.config.model.qute.KubeAdmConfig;
 import dev.snowdrop.container.ImageUtils;
 import dev.snowdrop.kind.KindKubernetesConfiguration;
+import io.quarkus.qute.Engine;
+import io.quarkus.qute.Template;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import picocli.CommandLine;
@@ -27,9 +30,11 @@ import java.util.concurrent.TimeUnit;
 
 import static com.github.dockerjava.api.model.AccessMode.ro;
 import static dev.snowdrop.kind.KindVersion.defaultKubernetesVersion;
-import static dev.snowdrop.kind.KubernetesConfig.KUBE_API_PORT;
-import static dev.snowdrop.kind.KubernetesConfig.getKindImageName;
+import static dev.snowdrop.kind.KubernetesConfig.*;
 import static dev.snowdrop.kind.PortUtils.getFreePortOnHost;
+import static java.lang.String.format;
+import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Arrays.asList;
 
 // Example Subcommand: Create
 @CommandLine.Command(name = "create", description = "Create a new container")
@@ -135,7 +140,9 @@ public class CreateContainer extends Container implements Callable<Integer> {
 
                 // TODO: Add next steps to create the kubernetes cluster, install CNI and storage
                 containerInfo = dockerClient.inspectContainerCmd(containerId).exec();
-                final Map<String, String> params = kkc.prepareTemplateParams(containerInfo);
+
+                // Create the kubeAdmConfig file and run kubeadm init
+                kubeadmInit(kkc.prepareTemplateParams(containerInfo));
 
                 return 0;
             } catch (DockerClientException e) {
@@ -161,6 +168,49 @@ public class CreateContainer extends Container implements Callable<Integer> {
             return 1;
         } finally {
             closeDockerClient();
+        }
+    }
+
+    private void kubeadmInit(KubeAdmConfig kubeAdmConfig) throws IOException, InterruptedException {
+        String result;
+        // Render the template => KubeAdminConfig YAML and write it to the kind container
+        try {
+            LOGGER.info("Render the KubeAdminConfig template ...");
+            Engine engine = Engine.builder().addDefaults().build();
+            String kubeAdmYaml = new String(this.getClass().getClassLoader().getResourceAsStream("templates/kubeadm.yaml").readAllBytes());
+            Template kubeAdmConfigTmpl = engine.parse(kubeAdmYaml);
+            result = kubeAdmConfigTmpl.data("cfg", kubeAdmConfig).render();
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+
+        LOGGER.info("KubeAdmConfig file: {}", result);
+
+        LOGGER.info("Writing container file: {}", "fname");
+        //container.copyFileToContainer(Transferable.of(result.getBytes(UTF_8), fname));
+
+        LOGGER.info("Execute command: {}", "kubeadm init ...");
+        try {
+            //final String kubeadmResource = getKubeadmResource();
+            //final String kubeadmConfigPath = format("%s/%s", CONTAINER_WORKDIR, kubeadmResource);
+            //final String kubeadmConfig = templateResource(this, kubeadmResource, params, kubeadmConfigPath);
+            execInContainer(
+                "kubeadm", "init",
+                "--skip-phases=preflight",
+                // specify our generated config file
+                "--config=" + result,
+                "--skip-token-print",
+                // Use predetermined node name
+                "--node-name=" + NODE_NAME,
+                // increase verbosity for debugging
+                "--v=6");
+        } catch (final RuntimeException | IOException | InterruptedException e) {
+            try {
+                LOGGER.error("{}", execInContainer("journalctl").getStdout(), "JOURNAL: "); //execInContainer("journalctl").getStdout(), "JOURNAL: "));
+            } catch (final IOException | InterruptedException ex) {
+                LOGGER.error("Could not retrieve journal.", ex);
+            }
+            throw e;
         }
     }
 

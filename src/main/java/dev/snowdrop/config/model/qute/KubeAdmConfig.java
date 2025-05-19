@@ -3,6 +3,12 @@ package dev.snowdrop.config.model.qute;
 public class KubeAdmConfig {
     private String nodeName;
     private String nodeIp;
+    private String bindPort;
+    private String minNodePort;
+    private String maxNodePort;
+    private String podSubnet;
+    private String serviceSubnet;
+    private String kubernetesVersion;
 
     public String getBindPort() {
         return bindPort;
@@ -11,13 +17,6 @@ public class KubeAdmConfig {
     public void setBindPort(String bindPort) {
         this.bindPort = bindPort;
     }
-
-    private String bindPort;
-    private String minNodePort;
-    private String maxNodePort;
-    private String podSubnet;
-    private String serviceSubnet;
-    private String kubernetesVersion;
 
     public String getPodSubnet() {
         return podSubnet;

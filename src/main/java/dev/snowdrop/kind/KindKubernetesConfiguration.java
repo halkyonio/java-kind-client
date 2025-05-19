@@ -1,6 +1,7 @@
 package dev.snowdrop.kind;
 
 import com.github.dockerjava.api.command.InspectContainerResponse;
+import dev.snowdrop.config.model.qute.KubeAdmConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -29,28 +30,18 @@ public class KindKubernetesConfiguration {
         this.kubernetesVersion = kubernetesVersion;
     }
 
-    public Map<String, String> prepareTemplateParams(InspectContainerResponse containerInfo) throws IOException, InterruptedException {
-        final String containerInternalIpAddress = getInternalIpAddress(containerInfo);
-        LOGGER.info("Container internal IP address: {}", containerInternalIpAddress);
-        final Set<String> subjectAlternativeNames = new HashSet<>(asList(
-            containerInternalIpAddress,
-            "127.0.0.1",
-            "localhost"
-            //getContainerIpAddress()
-        ));
-        LOGGER.debug("SANs for Kube-API server certificate: {}", subjectAlternativeNames);
-        final Map<String, String> params = new HashMap<String, String>() {{
-            put(".NodeIp", containerInternalIpAddress);
-            put(".PodSubnet", POD_SUBNET);
-            put(".ServiceSubnet", SERVICE_SUBNET);
-            put(".CertSANs", subjectAlternativeNames.stream().map(san -> "\"" + san + "\"").collect(joining(",")));
-            put(".KubernetesVersion", kubernetesVersion);
-            put(".MinNodePort", String.valueOf(MIN_NODE_PORT));
-            put(".MaxNodePort", String.valueOf(MAX_NODE_PORT));
-        }};
+    public KubeAdmConfig prepareTemplateParams(InspectContainerResponse containerInfo) throws IOException, InterruptedException {
+        KubeAdmConfig cfg = new KubeAdmConfig();
+        cfg.setNodeIp(getInternalIpAddress(containerInfo));
+        LOGGER.info("Container internal IP address: {}", cfg.getNodeIp());
+        cfg.setPodSubnet(POD_SUBNET);
+        cfg.setServiceSubnet(SERVICE_SUBNET);
+        cfg.setKubernetesVersion(kubernetesVersion);
+        cfg.setMinNodePort(String.valueOf(MIN_NODE_PORT));
+        cfg.setMaxNodePort(String.valueOf(MAX_NODE_PORT));
         LOGGER.info("Creating within the kind container the CONTAINER_WORKDIR: {}",CONTAINER_WORKDIR);
         execInContainer(new String[]{"mkdir", "-p", CONTAINER_WORKDIR});
-        return params;
+        return cfg;
     }
 
 }

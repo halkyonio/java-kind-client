@@ -15,10 +15,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @io.quarkus.test.junit.QuarkusTest
 public class QuteTemplateTest {
-
-    @Inject
-    Template movie;
-
     @Inject
     @Location("kubeadm.yaml")
     Template kubeadm;
@@ -46,12 +42,6 @@ public class QuteTemplateTest {
         assertTrue(result.contains("serviceSubnet: 10.96.0.0/16"));
         assertTrue(result.contains("apiServerEndpoint: my-kind-control-plane:6443"));
         assertTrue(result.contains("provider-id: kind://podman/my-kind/my-kind-control-plane"));
-    }
-
-    @Test
-    public void testMovie() {
-        Assertions.assertEquals("2: Michael Caine, John Cleese",
-            movie.data("movie", new Movie("Michael Caine", "John Cleese")).render());
     }
 
 }
