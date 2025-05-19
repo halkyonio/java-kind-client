@@ -16,7 +16,9 @@ import dev.snowdrop.config.model.qute.KubeAdmConfig;
 import dev.snowdrop.container.ImageUtils;
 import dev.snowdrop.kind.KindKubernetesConfiguration;
 import io.quarkus.qute.Engine;
+import io.quarkus.qute.Location;
 import io.quarkus.qute.Template;
+import jakarta.inject.Inject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import picocli.CommandLine;
@@ -46,6 +48,10 @@ public class CreateContainer extends Container implements Callable<Integer> {
         put("/run", "rw");
         put("/tmp", "rw");
     }};
+
+    @Inject
+    @Location("kubeadm.yaml")
+    Template kubeadm;
 
     @CommandLine.Parameters(index = "0", description = "The image name to use for the container")
     String containerName;
@@ -176,10 +182,10 @@ public class CreateContainer extends Container implements Callable<Integer> {
         // Render the template => KubeAdminConfig YAML and write it to the kind container
         try {
             LOGGER.info("Render the KubeAdminConfig template ...");
-            Engine engine = Engine.builder().addDefaults().build();
+            /*Engine engine = Engine.builder().addDefaults().build();
             String kubeAdmYaml = new String(this.getClass().getClassLoader().getResourceAsStream("templates/kubeadm.yaml").readAllBytes());
-            Template kubeAdmConfigTmpl = engine.parse(kubeAdmYaml);
-            result = kubeAdmConfigTmpl.data("cfg", kubeAdmConfig).render();
+            Template kubeAdmConfigTmpl = engine.parse(kubeAdmYaml);*/
+            result = kubeadm.data("cfg", kubeAdmConfig).render();
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
