@@ -8,15 +8,19 @@ import org.junit.jupiter.api.Test;
 import java.io.IOException;
 import java.io.InputStream;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 @QuarkusTest
-public class TemplateTest {
+public class QuteTemplateTest {
     @Test
     public void test() throws IOException {
         InputStream is = Test.class.getResourceAsStream("/kubeadm-from-1.24.yaml");
         String kubeAdmin = new String(is.readAllBytes());
         Engine engine = Engine.builder().addDefaults().build();
         Template kubeAdminTmpl = engine.parse(kubeAdmin);
-        System.out.println("Result: "  + kubeAdminTmpl.data("nodeName","my-kind").render());
+
+        var result = kubeAdminTmpl.data("nodeName","my-kind").render();
+        assertEquals("my-kind",result);
     }
 
 }
