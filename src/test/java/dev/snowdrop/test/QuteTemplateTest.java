@@ -18,6 +18,10 @@ public class QuteTemplateTest {
     @Location("kubeadm.yaml")
     Template kubeadm;
 
+    @Inject
+    @Location("cni.yaml")
+    Template cni;
+
     @Test
     public void testKubeAdmConfig() throws IOException {
         KubeAdmConfig cfg = new KubeAdmConfig();
@@ -43,4 +47,11 @@ public class QuteTemplateTest {
         assertTrue(result.contains("provider-id: kind://podman/my-kind/my-kind-control-plane"));
     }
 
+    @Test
+    public void testCNI() throws IOException {
+        KubeAdmConfig cfg = new KubeAdmConfig();
+        cfg.setPodSubnet("10.244.0.0/16");
+        var result = cni.data("cfg", cfg).render();
+        assertTrue(result.contains("value: 10.244.0.0/16"));
+    }
 }

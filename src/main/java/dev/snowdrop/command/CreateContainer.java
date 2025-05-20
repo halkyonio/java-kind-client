@@ -14,6 +14,7 @@ import com.github.dockerjava.api.model.PortBinding;
 import com.github.dockerjava.api.model.Volume;
 import dev.snowdrop.Container;
 import dev.snowdrop.config.model.qute.KubeAdmConfig;
+import dev.snowdrop.config.model.qute.StorageConfig;
 import dev.snowdrop.container.ImageUtils;
 import dev.snowdrop.kind.KindKubernetesConfiguration;
 import io.quarkus.qute.Location;
@@ -56,6 +57,14 @@ public class CreateContainer extends Container implements Callable<Integer> {
     @Inject
     @Location("kubeadm.yaml")
     Template kubeadm;
+
+    @Inject
+    @Location("cni.yaml")
+    Template cni;
+
+    @Inject
+    @Location("storage.yaml")
+    Template storage;
 
     @CommandLine.Parameters(index = "0", description = "The image name to use for the container")
     String containerName;
@@ -151,9 +160,20 @@ public class CreateContainer extends Container implements Callable<Integer> {
                 // TODO: Add next steps to create the kubernetes cluster, install CNI and storage
                 containerInfo = dockerClient.inspectContainerCmd(containerId).exec();
 
+                // Generate the kubeAdmConfig
+                KubeAdmConfig kubeAdmConfig = kkc.prepareTemplateParams(containerInfo);
                 // Create the kubeAdmConfig file and run kubeadm init
-                kubeadmInit(containerInfo, kkc.prepareTemplateParams(containerInfo));
-                // TODO: Copy cp /etc/kubernetes/admin.conf ~/.kube/config
+                kubeadmInit(containerInfo,kubeAdmConfig);
+
+                // TODO: Do we have to cp /etc/kubernetes/admin.conf ~/.kube/config OR use KUBECONFIG env var or kubectl --kubeconfig=''
+
+                // Render from the template the CNI resources file and deploy it on the cluster
+                installCNI(kubeAdmConfig);
+
+                // Deploy the local storage resources on the cluster (based on rancher.io/local-path)
+                StorageConfig storageConfig = new StorageConfig();
+                storageConfig.setVolumeBindingMode("WaitForFirstConsumer"); // WaitForFirstConsumer, Immediate
+                installStorage(storageConfig);
 
                 return 0;
             } catch (DockerClientException e) {
@@ -185,6 +205,7 @@ public class CreateContainer extends Container implements Callable<Integer> {
     private void kubeadmInit(InspectContainerResponse containerInfo, KubeAdmConfig kubeAdmConfig) throws IOException, InterruptedException {
         String result;
         String kubeAdmConfigPath = format("%s/%s", CONTAINER_WORKDIR, "kube-admin.conf");
+
         // Render the template => KubeAdminConfig YAML and write it to the kind container
         try {
             LOGGER.info("Render the KubeAdminConfig template ...");
@@ -193,13 +214,9 @@ public class CreateContainer extends Container implements Callable<Integer> {
             throw new RuntimeException(e);
         }
 
-        LOGGER.info("KubeAdmConfig file: {}", result);
+        LOGGER.info("KubeAdmConfig generated: {}", result);
 
         LOGGER.info("Writing container file: {}", kubeAdmConfigPath);
-/*        LOGGER.info("Is container running: {}", bc.isRunning());
-        LOGGER.info("Is container created: {}", bc.isCreated());
-        LOGGER.info("Is container healthy: {}", bc.isHealthy());*/
-
         copyFileToContainer(containerInfo, Transferable.of(result.getBytes(UTF_8)), kubeAdmConfigPath);
 
         LOGGER.info("Execute command: {}", "kubeadm init ...");
@@ -216,11 +233,73 @@ public class CreateContainer extends Container implements Callable<Integer> {
                 "--v=6");
         } catch (final RuntimeException | IOException | InterruptedException e) {
             try {
-                LOGGER.error("{}", execInContainer("journalctl").getStdout(), "JOURNAL: "); //execInContainer("journalctl").getStdout(), "JOURNAL: "));
+                LOGGER.error("{}", execInContainer("journalctl").getStdout(), "JOURNAL: ");
             } catch (final IOException | InterruptedException ex) {
                 LOGGER.error("Could not retrieve journal.", ex);
             }
             throw e;
+        }
+    }
+
+    private void installCNI(KubeAdmConfig kubeAdmConfig) {
+        String result;
+        String CNI_RESOURCES_PATH =  CONTAINER_WORKDIR + "manifests/cni.yaml";
+        // Render the template => CNI YAML and write it to the kind container
+        try {
+            LOGGER.info("Render the CNI template ...");
+            result = cni.data("cfg", kubeAdmConfig).render();
+            LOGGER.debug("CNI generated: {}", result);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+
+        LOGGER.info("Writing CNI generated resources file: {}", CNI_RESOURCES_PATH);
+        copyFileToContainer(containerInfo, Transferable.of(result.getBytes(UTF_8)), CNI_RESOURCES_PATH);
+
+        String[] cmd = {
+            "kubectl",
+            "--kubeconfig=/etc/kubernetes/admin.conf",
+            "apply",
+            "-f",
+            CNI_RESOURCES_PATH
+        };
+
+        try {
+            LOGGER.info("Execute command: {}", Arrays.stream(cmd).toList());
+            execInContainer(cmd);
+        } catch (final RuntimeException | IOException | InterruptedException e) {
+            LOGGER.error("Fail to execute the kubectl cmd", e);
+        }
+    }
+
+    private void installStorage(StorageConfig storageconfig) {
+        String result;
+        String STORAGE_RESOURCES_PATH =  CONTAINER_WORKDIR + "manifests/storage.yaml";
+        // Render the template => Storage YAML and write it to the kind container
+        try {
+            LOGGER.info("Render the Storage template ...");
+            result = storage.data("cfg", storageconfig).render();
+            LOGGER.debug("Storage generated: {}", result);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+
+        LOGGER.info("Writing Storage generated resources file: {}", STORAGE_RESOURCES_PATH);
+        copyFileToContainer(containerInfo, Transferable.of(result.getBytes(UTF_8)), STORAGE_RESOURCES_PATH);
+
+        String[] cmd = {
+            "kubectl",
+            "--kubeconfig=/etc/kubernetes/admin.conf",
+            "apply",
+            "-f",
+            STORAGE_RESOURCES_PATH
+        };
+
+        try {
+            LOGGER.info("Execute command: {}", Arrays.stream(cmd).toList());
+            execInContainer(cmd);
+        } catch (final RuntimeException | IOException | InterruptedException e) {
+            LOGGER.error("Fail to execute the kubectl cmd", e);
         }
     }
 
