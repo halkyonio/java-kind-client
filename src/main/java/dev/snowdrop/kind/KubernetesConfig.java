@@ -16,9 +16,19 @@ public class KubernetesConfig {
       apiVersion: kubeadm.k8s.io/v1beta3
       kind: ClusterConfiguration
       clusterName: <NODE_NAME>
-
     */
     public static String NODE_NAME = "kind";
+
+    /*
+      Labels to be added to the node
+
+      apiVersion: kubeadm.k8s.io/v1beta3
+      kind: Init|JoinConfiguration
+      nodeRegistration:
+        kubeletExtraArgs:
+          node-labels: <NODE_LABELS>
+    */
+    public static String NODE_LABELS = "ingress-ready=true";
 
     /*
 

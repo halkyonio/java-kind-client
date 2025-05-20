@@ -187,7 +187,7 @@ public class CreateContainer extends Container implements Callable<Integer> {
                 LOGGER.debug("Kubeconfig: {}", kubeconfig);
 
                 String pathToConfigFile = String.format("%s-%s",containerInfo.getName().replaceAll("/", ""),"kube.conf");
-                LOGGER.info("Your kubernetes cluster config file is available here: {}",pathToConfigFile);
+                LOGGER.info("Your kubernetes cluster config file is available at: {}",pathToConfigFile);
                 try (PrintWriter out = new PrintWriter(pathToConfigFile)) {
                     out.println(kubeconfig);
                 }

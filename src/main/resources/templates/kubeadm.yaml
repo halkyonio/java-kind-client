@@ -37,7 +37,7 @@ nodeRegistration:
   kubeletExtraArgs:
     fail-swap-on: "false"
     node-ip: {cfg.nodeIp}
-    node-labels: ""
+    node-labels: {cfg.nodeLabels}
     provider-id: kind://podman/{cfg.nodeName}/{cfg.nodeName}-control-plane
 ---
 apiVersion: kubeadm.k8s.io/v1beta3
@@ -56,7 +56,7 @@ nodeRegistration:
   kubeletExtraArgs:
     fail-swap-on: "false"
     node-ip: {cfg.nodeIp}
-    node-labels: ""
+    node-labels: {cfg.nodeLabels}
     provider-id: kind://podman/{cfg.nodeName}/{cfg.nodeName}-control-plane
 skipPhases:
 - preflight

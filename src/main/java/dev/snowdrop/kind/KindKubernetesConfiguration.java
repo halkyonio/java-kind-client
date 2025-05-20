@@ -42,6 +42,7 @@ public class KindKubernetesConfiguration {
         cfg.setKubernetesVersion(kubernetesVersion);
         cfg.setMinNodePort(String.valueOf(MIN_NODE_PORT));
         cfg.setMaxNodePort(String.valueOf(MAX_NODE_PORT));
+        cfg.setNodeLabels(NODE_LABELS);
         LOGGER.info("Creating within the kind container the CONTAINER_WORKDIR: {}",CONTAINER_WORKDIR);
         execInContainer(new String[]{"mkdir", "-p", CONTAINER_WORKDIR});
         return cfg;

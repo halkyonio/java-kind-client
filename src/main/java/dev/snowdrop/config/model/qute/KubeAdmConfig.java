@@ -9,6 +9,7 @@ public class KubeAdmConfig {
     private String podSubnet;
     private String serviceSubnet;
     private String kubernetesVersion;
+    private String nodeLabels;
 
     public String getBindPort() {
         return bindPort;
@@ -72,5 +73,13 @@ public class KubeAdmConfig {
 
     public void setNodeIp(String nodeIp) {
         this.nodeIp = nodeIp;
+    }
+
+    public String getNodeLabels() {
+        return nodeLabels;
+    }
+
+    public void setNodeLabels(String nodeLabels) {
+        this.nodeLabels = nodeLabels;
     }
 }
