@@ -18,6 +18,8 @@ import dev.snowdrop.container.ImageUtils;
 import dev.snowdrop.kind.KindKubernetesConfiguration;
 import io.fabric8.kubernetes.api.model.HasMetadata;
 import io.fabric8.kubernetes.api.model.Taint;
+import io.fabric8.kubernetes.api.model.networking.v1.Ingress;
+import io.fabric8.kubernetes.api.model.networking.v1.IngressBuilder;
 import io.fabric8.kubernetes.client.Config;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.KubernetesClientBuilder;
@@ -42,6 +44,7 @@ import java.util.concurrent.TimeUnit;
 
 import static com.github.dockerjava.api.model.AccessMode.ro;
 import static dev.snowdrop.component.ingress.ResourceUtils.fetchIngressResourcesFromURL;
+import static dev.snowdrop.component.tekton.ResourceUtils.*;
 import static dev.snowdrop.config.KubeConfigUtils.parseKubeConfig;
 import static dev.snowdrop.config.KubeConfigUtils.serializeKubeConfig;
 import static dev.snowdrop.config.KubernetesClientUtils.waitTillPodSelectedByLabelsIsReady;
@@ -131,16 +134,22 @@ public class CreateContainer extends Container implements Callable<Integer> {
             volumes.add(varVolume);
             volumes.add(modVolume);
 
-            final List<Bind> binds = new ArrayList<>();
+            final List<Bind> binds = new ArrayList<Bind>();
             binds.add(new Bind(volumeName, varVolume, true));
             binds.add(new Bind("/lib/modules", modVolume, ro));
 
             ccc.withEntrypoint("/usr/local/bin/entrypoint", "/sbin/init")
                 .withTty(true)
                 .withVolumes(volumes)
-                .withBinds(binds);
+                .getHostConfig().withBinds(binds);
 
-            ccc.getHostConfig().withPortBindings(PortBinding.parse(String.format("%s:%s", getFreePortOnHost(), KUBE_API_PORT)));
+            List<PortBinding> pbs = new ArrayList<PortBinding>();
+            // Bind the Kube API port with a free Host port
+            pbs.add(PortBinding.parse(String.format("%s:%s", getFreePortOnHost(), KUBE_API_PORT)));
+            // Bind the port of the ingress service with the Host port 8443
+            pbs.add(PortBinding.parse(String.format("%s:%s", "8443", "443")));
+
+            ccc.getHostConfig().withPortBindings(pbs);
             ccc.getHostConfig().withPrivileged(true);
             ccc.getHostConfig().withTmpFs(TMP_FILESYSTEMS);
 
@@ -202,7 +211,7 @@ public class CreateContainer extends Container implements Callable<Integer> {
                     out.println(kubeconfig);
                 }
 
-                // Configure Fabric8 kubernets client
+                // Configure Fabric8 kubernetes client
                 KubernetesClient client = new KubernetesClientBuilder().withConfig(Config.fromKubeconfig(kubeconfig)).build();
 
                 // Untaint the node
@@ -219,6 +228,67 @@ public class CreateContainer extends Container implements Callable<Integer> {
                         "app.kubernetes.io/name", "ingress-nginx",
                         "app.kubernetes.io/component", "controller"),
                     "ingress-nginx");
+
+                // Let's make a test and deploy Tekton
+                var TEKTON_CONTROLLER_NAMESPACE = "tekton-pipelines";
+
+                // Install the Tekton resources using the YAML manifest file
+                items = client.load(fetchTektonResourcesFromURL("v1.0.0")).items();
+                LOGGER.info("Deploying the tekton resources ...");
+                for (HasMetadata item : items) {
+                    var res = client.resource(item).create();
+                    assertNotNull(res);
+                }
+
+                // Waiting till the Tekton pods are ready/running ...
+                waitTillPodSelectedByLabelsIsReady(client,
+                    Map.of("app.kubernetes.io/name", "controller",
+                        "app.kubernetes.io/part-of", "tekton-pipelines"),
+                    TEKTON_CONTROLLER_NAMESPACE);
+
+                // TODO
+                items = client.load(fetchTektonDashboardResourcesFromURL()).items();
+                LOGGER.info("Deploying the tekton dashboard resources ...");
+                for (HasMetadata item : items) {
+                    var res = client.resource(item).inNamespace(TEKTON_CONTROLLER_NAMESPACE);
+                    res.create();
+                    assertNotNull(res);
+                }
+
+                // Waiting till the Tekton dashboard pod is ready/running ...
+                waitTillPodSelectedByLabelsIsReady(client,
+                    Map.of("app.kubernetes.io/name", "dashboard",
+                        "app.kubernetes.io/part-of", "tekton-dashboard"),
+                    TEKTON_CONTROLLER_NAMESPACE);
+
+                // Create the Tekton dashboard ingress route
+                LOGGER.info("Creating the ingress route for the tekton dashboard ...");
+                Ingress tektonIngressRoute = new IngressBuilder()
+                    // @formatter:off
+                    .withNewMetadata()
+                      .withName("tekton-ui")
+                      .withNamespace(TEKTON_CONTROLLER_NAMESPACE)
+                    .endMetadata()
+                    .withNewSpec()
+                      .addNewRule()
+                        .withHost(TEKTON_INGRESS_HOST_NAME)
+                        .withNewHttp()
+                          .addNewPath()
+                            .withPath("/")
+                            .withPathType("Prefix") // This field is mandatory
+                            .withNewBackend()
+                              .withNewService()
+                                .withName(TEKTON_DASHBOARD_NAME)
+                                .withNewPort().withNumber(9097).endPort()
+                              .endService()
+                            .endBackend()
+                          .endPath()
+                        .endHttp()
+                      .endRule()
+                    .endSpec()
+                    .build();
+                    // @formatter:on
+                client.resource(tektonIngressRoute).create();
 
                 return 0;
             } catch (DockerClientException e) {
