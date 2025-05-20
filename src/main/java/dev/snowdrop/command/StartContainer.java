@@ -25,6 +25,7 @@ public class StartContainer extends Container implements Callable<Integer> {
     @Override
     public Integer call() {
         //System.setProperty("org.slf4j.simpleLogger.log.com.github.dockerjava", "debug");
+
         try {
             var containerId = fetchContainerId(containerIdOrName);
 

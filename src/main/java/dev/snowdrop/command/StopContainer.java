@@ -2,6 +2,10 @@ package dev.snowdrop.command;
 
 import com.github.dockerjava.api.exception.NotModifiedException;
 import dev.snowdrop.Container;
+import dev.snowdrop.config.ClientConfig;
+import jakarta.inject.Inject;
+import org.eclipse.microprofile.config.ConfigProvider;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import picocli.CommandLine;
@@ -21,8 +25,15 @@ public class StopContainer extends Container implements Callable<Integer> {
     @CommandLine.Option(names = {"-t", "--time"}, description = "Seconds to wait for stop before killing the container")
     int stopTimeout = 10;
 
+    @Inject
+    ClientConfig cfg;
+
     @Override
     public Integer call() {
+        LOGGER.info("Cluster name: " + cfg.name());
+        LOGGER.info("Labels: " + cfg.labels());
+        LOGGER.info("Binding: {}:{}", cfg.binding().containerPort(), cfg.binding().hostPort());
+
         try {
             var containerId = fetchContainerId(containerIdOrName);
             dockerClient.stopContainerCmd(containerId)
