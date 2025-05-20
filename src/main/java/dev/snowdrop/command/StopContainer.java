@@ -26,16 +26,8 @@ public class StopContainer extends Container implements Callable<Integer> {
     @CommandLine.Option(names = {"-t", "--time"}, description = "Seconds to wait for stop before killing the container")
     int stopTimeout = 10;
 
-    @Inject
-    ClientConfig cfg;
-
     @Override
     public Integer call() {
-        LOGGER.info("Cluster name: " + cfg.name());
-        LOGGER.info("Labels: " + cfg.labels());
-        cfg.binding().forEach(b -> {
-            LOGGER.info("Binding between host => container: {}:{}", b.hostPort(), b.containerPort());
-        });
         try {
             var containerId = fetchContainerId(containerIdOrName);
             dockerClient.stopContainerCmd(containerId)

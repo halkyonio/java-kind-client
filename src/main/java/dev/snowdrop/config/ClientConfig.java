@@ -6,9 +6,15 @@ import io.smallrye.config.WithDefault;
 import io.smallrye.config.WithName;
 
 import java.util.List;
+import java.util.Optional;
 
 @ConfigMapping(prefix = "kind")
 public interface ClientConfig {
+    /**
+     * Version of kubernetes to be installed
+     */
+    Optional<String> kubernetesVersion();
+
     /**
      * Name of the cluster
      */
@@ -18,7 +24,7 @@ public interface ClientConfig {
     /**
      * Labels to be added to the Node
      */
-    String labels();
+    Optional<String> labels();
 
     /**
      * Binding configuration

@@ -11,6 +11,7 @@ import com.github.dockerjava.api.exception.NotFoundException;
 import com.github.dockerjava.api.exception.NotModifiedException;
 import com.github.dockerjava.api.model.*;
 import dev.snowdrop.Container;
+import dev.snowdrop.config.ClientConfig;
 import dev.snowdrop.config.model.KubeConfig;
 import dev.snowdrop.config.model.qute.KubeAdmConfig;
 import dev.snowdrop.config.model.qute.StorageConfig;
@@ -95,8 +96,18 @@ public class CreateContainer extends Container implements Callable<Integer> {
     @CommandLine.Option(names = {"-e", "--env"}, description = "Set environment variables", arity = "1..*")
     List<String> environment; // e.g., "VAR1=value1", "VAR2=value2"
 
+    @Inject
+    ClientConfig cfg;
+
     @Override
     public Integer call() {
+        // TODO: Improve this code to merge the user's arguments with the application.properties
+        LOGGER.info("Cluster name: " + cfg.name());
+        LOGGER.info("Labels: " + cfg.labels());
+        cfg.binding().forEach(b -> {
+            LOGGER.info("Binding between host => container: {}:{}", b.hostPort(), b.containerPort());
+        });
+
         try {
             /*
                Use the default kubernetes version if no version has been specified as: 1.29.14, 1.30.10, 1.31.6, 1.32.2
