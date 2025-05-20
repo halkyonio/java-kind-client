@@ -10,6 +10,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import picocli.CommandLine;
 
+import java.util.Arrays;
 import java.util.concurrent.Callable;
 
 import static dev.snowdrop.container.ContainerUtils.fetchContainerId;
@@ -32,8 +33,9 @@ public class StopContainer extends Container implements Callable<Integer> {
     public Integer call() {
         LOGGER.info("Cluster name: " + cfg.name());
         LOGGER.info("Labels: " + cfg.labels());
-        LOGGER.info("Binding: {}:{}", cfg.binding().containerPort(), cfg.binding().hostPort());
-
+        cfg.binding().forEach(b -> {
+            LOGGER.info("Binding between host => container: {}:{}", b.hostPort(), b.containerPort());
+        });
         try {
             var containerId = fetchContainerId(containerIdOrName);
             dockerClient.stopContainerCmd(containerId)

@@ -1,12 +1,18 @@
 package dev.snowdrop.config;
 
+import io.quarkus.runtime.annotations.ConfigRoot;
 import io.smallrye.config.ConfigMapping;
+import io.smallrye.config.WithDefault;
+import io.smallrye.config.WithName;
+
+import java.util.List;
 
 @ConfigMapping(prefix = "kind")
 public interface ClientConfig {
     /**
      * Name of the cluster
      */
+    @WithDefault("kind")
     String name();
 
     /**
@@ -18,7 +24,7 @@ public interface ClientConfig {
      * Binding configuration
      * It represents the ports to be bind between the container and the host
      */
-     Binding binding();
+     List<Binding> binding();
 
      interface Binding {
          /**
@@ -31,5 +37,4 @@ public interface ClientConfig {
           */
          String containerPort();
      }
-
 }
