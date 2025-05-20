@@ -16,6 +16,11 @@ import dev.snowdrop.config.model.qute.KubeAdmConfig;
 import dev.snowdrop.config.model.qute.StorageConfig;
 import dev.snowdrop.container.ImageUtils;
 import dev.snowdrop.kind.KindKubernetesConfiguration;
+import io.fabric8.kubernetes.api.model.HasMetadata;
+import io.fabric8.kubernetes.api.model.Taint;
+import io.fabric8.kubernetes.client.Config;
+import io.fabric8.kubernetes.client.KubernetesClient;
+import io.fabric8.kubernetes.client.KubernetesClientBuilder;
 import io.quarkus.qute.Location;
 import io.quarkus.qute.Template;
 import jakarta.inject.Inject;
@@ -36,13 +41,18 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
 import static com.github.dockerjava.api.model.AccessMode.ro;
+import static dev.snowdrop.component.ingress.ResourceUtils.fetchIngressResourcesFromURL;
 import static dev.snowdrop.config.KubeConfigUtils.parseKubeConfig;
 import static dev.snowdrop.config.KubeConfigUtils.serializeKubeConfig;
+import static dev.snowdrop.config.KubernetesClientUtils.waitTillPodSelectedByLabelsIsReady;
 import static dev.snowdrop.kind.KindVersion.defaultKubernetesVersion;
 import static dev.snowdrop.kind.KubernetesConfig.*;
 import static dev.snowdrop.kind.PortUtils.getFreePortOnHost;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Arrays.asList;
+import static java.util.Collections.emptyList;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 // Example Subcommand: Create
 @CommandLine.Command(name = "create", description = "Create a new container")
@@ -192,6 +202,24 @@ public class CreateContainer extends Container implements Callable<Integer> {
                     out.println(kubeconfig);
                 }
 
+                // Configure Fabric8 kubernets client
+                KubernetesClient client = new KubernetesClientBuilder().withConfig(Config.fromKubeconfig(kubeconfig)).build();
+
+                // Untaint the node
+                untaintNode(client);
+
+                // Provision the cluster with core components: ingress, etc
+                List<HasMetadata> items = client.load(fetchIngressResourcesFromURL("latest")).items();
+                LOGGER.info("Deploying the ingress controller resources ...");
+                for (HasMetadata item : items) {
+                    var res = client.resource(item).create();
+                    assertNotNull(res);
+                }
+                waitTillPodSelectedByLabelsIsReady(client, Map.of(
+                        "app.kubernetes.io/name", "ingress-nginx",
+                        "app.kubernetes.io/component", "controller"),
+                    "ingress-nginx");
+
                 return 0;
             } catch (DockerClientException e) {
                 LOGGER.info("Timeout to get the kind container response ...");
@@ -217,6 +245,47 @@ public class CreateContainer extends Container implements Callable<Integer> {
         } finally {
             closeDockerClient();
         }
+    }
+
+    private void untaintNode(KubernetesClient client) {
+        client.nodes().list().getItems().forEach(node -> {
+            asList("master", "control-plane").forEach(role -> {
+                final String key = format("node-role.kubernetes.io/%s", role);
+                final String effect = "NoSchedule";
+                final String removeTaint = String.format("%s:%s-", key, effect);
+                if (hasTaint(node, key, null, effect)) {
+                    try {
+                        String[] cmd = {
+                            "kubectl",
+                            "--kubeconfig=/etc/kubernetes/admin.conf",
+                            "taint",
+                            "node",
+                            node.getMetadata().getName(),
+                            removeTaint
+                        };
+                        LOGGER.debug("Execute command: {}", Arrays.stream(cmd).toList());
+                        execInContainer(cmd);
+                    } catch (final IOException | InterruptedException e) {
+                        throw new RuntimeException("Failed to untaint node", e);
+                    }
+                }
+            });
+        });
+    }
+
+    private boolean hasTaint(final io.fabric8.kubernetes.api.model.Node node, final String key, final String value, final String effect) {
+        return Optional.ofNullable(node.getSpec().getTaints()).orElse(emptyList()).stream()
+            .anyMatch(t -> isTaint(t, key, value, effect));
+    }
+
+    private static boolean isTaint(final Taint t, final String key, final String value, final String effect) {
+        if (!Objects.equals(t.getKey(), key)) {
+            return false;
+        }
+        if (!Objects.equals(t.getValue(), value)) {
+            return false;
+        }
+        return Objects.equals(t.getEffect(), effect);
     }
 
     private void kubeadmInit(InspectContainerResponse containerInfo, KubeAdmConfig kubeAdmConfig) throws IOException, InterruptedException {
