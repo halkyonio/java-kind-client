@@ -18,7 +18,7 @@ public class KubernetesConfig {
       clusterName: <NODE_NAME>
 
     */
-    public static String NODE_NAME = "KIND";
+    public static String NODE_NAME = "kind";
 
     /*
 

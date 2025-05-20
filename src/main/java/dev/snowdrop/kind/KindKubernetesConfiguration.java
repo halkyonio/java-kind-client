@@ -33,6 +33,8 @@ public class KindKubernetesConfiguration {
     public KubeAdmConfig prepareTemplateParams(InspectContainerResponse containerInfo) throws IOException, InterruptedException {
         KubeAdmConfig cfg = new KubeAdmConfig();
         cfg.setNodeIp(getInternalIpAddress(containerInfo));
+        // TODO: Check why tDocker Java client adds a "/" before the nodeName !
+        cfg.setNodeName(containerInfo.getName().replaceAll("/", ""));
         cfg.setBindPort("6443");
         LOGGER.info("Container internal IP address: {}", cfg.getNodeIp());
         cfg.setPodSubnet(POD_SUBNET);

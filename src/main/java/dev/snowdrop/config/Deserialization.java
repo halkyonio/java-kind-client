@@ -1,11 +1,10 @@
 package dev.snowdrop.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-
-import static com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES;
+import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 
 final class Deserialization {
-    static final ObjectMapper JSON_MAPPER = new ObjectMapper().configure(FAIL_ON_UNKNOWN_PROPERTIES, false);
+    static final ObjectMapper YAML_MAPPER = new ObjectMapper(new YAMLFactory());
 
     public Deserialization() {
         throw new UnsupportedOperationException("Do not instantiate!");

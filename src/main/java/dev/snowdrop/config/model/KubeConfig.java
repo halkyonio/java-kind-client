@@ -3,6 +3,7 @@ package dev.snowdrop.config.model;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.List;
+import java.util.Map;
 
 public class KubeConfig {
     private String apiVersion;
@@ -11,6 +12,7 @@ public class KubeConfig {
     private List<Cluster> clusters;
     private List<Context> contexts;
     private List<User> users;
+    private Map<String, Object> preferences;
 
     public String getApiVersion() {
         return apiVersion;
@@ -59,5 +61,26 @@ public class KubeConfig {
 
     public void setUsers(List<User> users) {
         this.users = users;
+    }
+
+    public Map<String, Object> getPreferences() {
+        return preferences;
+    }
+
+    public void setPreferences(Map<String, Object> preferences) {
+        this.preferences = preferences;
+    }
+
+    @Override
+    public String toString() {
+        return "KubeConfig{" +
+            "apiVersion='" + apiVersion + '\'' +
+            ", kind='" + kind + '\'' +
+            ", currentContext='" + currentContext + '\'' +
+            ", clusters=" + clusters +
+            ", contexts=" + contexts +
+            ", users=" + users +
+            ", preferences=" + preferences +
+            '}';
     }
 }

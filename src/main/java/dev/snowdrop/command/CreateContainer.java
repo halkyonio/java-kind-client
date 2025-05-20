@@ -1,6 +1,7 @@
 package dev.snowdrop.command;
 
 import com.github.dockerjava.api.async.ResultCallback;
+import com.github.dockerjava.api.command.CopyArchiveFromContainerCmd;
 import com.github.dockerjava.api.command.CreateContainerCmd;
 import com.github.dockerjava.api.command.CreateContainerResponse;
 import com.github.dockerjava.api.command.InspectContainerResponse;
@@ -8,11 +9,9 @@ import com.github.dockerjava.api.exception.DockerClientException;
 import com.github.dockerjava.api.exception.InternalServerErrorException;
 import com.github.dockerjava.api.exception.NotFoundException;
 import com.github.dockerjava.api.exception.NotModifiedException;
-import com.github.dockerjava.api.model.Bind;
-import com.github.dockerjava.api.model.Frame;
-import com.github.dockerjava.api.model.PortBinding;
-import com.github.dockerjava.api.model.Volume;
+import com.github.dockerjava.api.model.*;
 import dev.snowdrop.Container;
+import dev.snowdrop.config.model.KubeConfig;
 import dev.snowdrop.config.model.qute.KubeAdmConfig;
 import dev.snowdrop.config.model.qute.StorageConfig;
 import dev.snowdrop.container.ImageUtils;
@@ -20,6 +19,8 @@ import dev.snowdrop.kind.KindKubernetesConfiguration;
 import io.quarkus.qute.Location;
 import io.quarkus.qute.Template;
 import jakarta.inject.Inject;
+import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
+import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
 import org.apache.commons.compress.archivers.tar.TarArchiveOutputStream;
 import org.apache.commons.compress.utils.IOUtils;
 import org.slf4j.Logger;
@@ -27,16 +28,16 @@ import org.slf4j.LoggerFactory;
 import org.testcontainers.images.builder.Transferable;
 import picocli.CommandLine;
 
-import java.io.Closeable;
-import java.io.IOException;
-import java.io.PipedInputStream;
-import java.io.PipedOutputStream;
+import java.io.*;
+import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
 import static com.github.dockerjava.api.model.AccessMode.ro;
+import static dev.snowdrop.config.KubeConfigUtils.parseKubeConfig;
+import static dev.snowdrop.config.KubeConfigUtils.serializeKubeConfig;
 import static dev.snowdrop.kind.KindVersion.defaultKubernetesVersion;
 import static dev.snowdrop.kind.KubernetesConfig.*;
 import static dev.snowdrop.kind.PortUtils.getFreePortOnHost;
@@ -110,6 +111,8 @@ public class CreateContainer extends Container implements Callable<Integer> {
 
             if (containerName != null) {
                 ccc.withName(containerName);
+            } else {
+                ccc.withName(NODE_NAME);
             }
 
             final Volume varVolume = new Volume("/var/lib/containerd");
@@ -163,7 +166,7 @@ public class CreateContainer extends Container implements Callable<Integer> {
                 // Generate the kubeAdmConfig
                 KubeAdmConfig kubeAdmConfig = kkc.prepareTemplateParams(containerInfo);
                 // Create the kubeAdmConfig file and run kubeadm init
-                kubeadmInit(containerInfo,kubeAdmConfig);
+                kubeadmInit(containerInfo, kubeAdmConfig);
 
                 // TODO: Do we have to cp /etc/kubernetes/admin.conf ~/.kube/config OR use KUBECONFIG env var or kubectl --kubeconfig=''
 
@@ -174,6 +177,20 @@ public class CreateContainer extends Container implements Callable<Integer> {
                 StorageConfig storageConfig = new StorageConfig();
                 storageConfig.setVolumeBindingMode("WaitForFirstConsumer"); // WaitForFirstConsumer, Immediate
                 installStorage(storageConfig);
+
+                // TODO: kindcontainer taint the node to remove: NoSchedule from the master or control-plane
+                // but the label don't include it in our case => node-role.kubernetes.io/control-plane: ""
+
+                // Add to the kubeConfig's user file the cluster definition to access the cluster
+                String kubeconfig = new String(getFileFromContainer(containerInfo.getId(), "/etc/kubernetes/admin.conf"), StandardCharsets.UTF_8);
+                kubeconfig = replaceServerInKubeconfig(getClusterIpAndPort(containerInfo), kubeconfig);
+                LOGGER.debug("Kubeconfig: {}", kubeconfig);
+
+                String pathToConfigFile = String.format("$s-$s",containerInfo.getName(),"kube.conf");
+                LOGGER.info("Your kubernetes cluster config file is available here: {}",pathToConfigFile);
+                try (PrintWriter out = new PrintWriter(pathToConfigFile)) {
+                    out.println(kubeconfig);
+                }
 
                 return 0;
             } catch (DockerClientException e) {
@@ -214,7 +231,7 @@ public class CreateContainer extends Container implements Callable<Integer> {
             throw new RuntimeException(e);
         }
 
-        LOGGER.info("KubeAdmConfig generated: {}", result);
+        LOGGER.debug("KubeAdmConfig generated: {}", result);
 
         LOGGER.info("Writing container file: {}", kubeAdmConfigPath);
         copyFileToContainer(containerInfo, Transferable.of(result.getBytes(UTF_8)), kubeAdmConfigPath);
@@ -243,7 +260,7 @@ public class CreateContainer extends Container implements Callable<Integer> {
 
     private void installCNI(KubeAdmConfig kubeAdmConfig) {
         String result;
-        String CNI_RESOURCES_PATH =  CONTAINER_WORKDIR + "manifests/cni.yaml";
+        String CNI_RESOURCES_PATH = CONTAINER_WORKDIR + "manifests/cni.yaml";
         // Render the template => CNI YAML and write it to the kind container
         try {
             LOGGER.info("Render the CNI template ...");
@@ -265,7 +282,7 @@ public class CreateContainer extends Container implements Callable<Integer> {
         };
 
         try {
-            LOGGER.info("Execute command: {}", Arrays.stream(cmd).toList());
+            LOGGER.debug("Execute command: {}", Arrays.stream(cmd).toList());
             execInContainer(cmd);
         } catch (final RuntimeException | IOException | InterruptedException e) {
             LOGGER.error("Fail to execute the kubectl cmd", e);
@@ -274,7 +291,7 @@ public class CreateContainer extends Container implements Callable<Integer> {
 
     private void installStorage(StorageConfig storageconfig) {
         String result;
-        String STORAGE_RESOURCES_PATH =  CONTAINER_WORKDIR + "manifests/storage.yaml";
+        String STORAGE_RESOURCES_PATH = CONTAINER_WORKDIR + "manifests/storage.yaml";
         // Render the template => Storage YAML and write it to the kind container
         try {
             LOGGER.info("Render the Storage template ...");
@@ -368,6 +385,54 @@ public class CreateContainer extends Container implements Callable<Integer> {
         } catch (InterruptedException | IOException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    public byte[] getFileFromContainer(String id, String path) {
+        CopyArchiveFromContainerCmd copycmd = dockerClient.copyArchiveFromContainerCmd(id, path);
+        ByteArrayOutputStream file = new ByteArrayOutputStream();
+        try {
+            InputStream tarStream = copycmd.exec();
+            TarArchiveInputStream tarInput = new TarArchiveInputStream(tarStream);
+            try {
+                TarArchiveEntry tarEntry = tarInput.getNextTarEntry();
+                while (tarEntry != null) {
+                    copy(tarInput, file);
+                    file.close();
+                    tarEntry = tarInput.getNextTarEntry();
+                }
+                return file.toByteArray();
+            } finally {
+                if (tarInput != null) tarInput.close();
+            }
+        } catch (NotFoundException nfe) {
+            throw new RuntimeException("Unable to locate container '" + id + "'", nfe);
+        } catch (IOException e) {
+            throw new RuntimeException("Unable to retrieve '" + path + "' from container", e);
+        }
+    }
+
+    private final void copy(InputStream in, OutputStream out) {
+        byte[] buf = new byte[8192];
+        int length;
+        try {
+            while ((length = in.read(buf)) > 0) {
+                out.write(buf, 0, length);
+            }
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public static String replaceServerInKubeconfig(final String server, final String string) {
+        final KubeConfig kubeconfig = parseKubeConfig(string);
+        kubeconfig.getClusters().get(0).getCluster().setServer(server);
+        return serializeKubeConfig(kubeconfig);
+    }
+
+    public static String getClusterIpAndPort(InspectContainerResponse containerInfo) {
+        Map<ExposedPort, Ports.Binding[]> ports = containerInfo.getHostConfig().getPortBindings().getBindings();
+        Ports.Binding[] bindings = ports.get(new ExposedPort(6443,InternetProtocol.TCP));
+        return format("https://%s:%s", "127.0.0.1", bindings[0].getHostPortSpec());
     }
 
 }
