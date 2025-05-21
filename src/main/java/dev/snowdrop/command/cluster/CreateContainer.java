@@ -141,13 +141,16 @@ public class CreateContainer extends Container implements Callable<Integer> {
 
             final Volume varVolume = new Volume("/var/lib/containerd");
             final Volume modVolume = new Volume("/lib/modules");
+            final Volume devMapperVolume = new Volume("/dev/mapper");
             final List<Volume> volumes = new ArrayList<>();
             volumes.add(varVolume);
             volumes.add(modVolume);
+            volumes.add(devMapperVolume);
 
             final List<Bind> binds = new ArrayList<Bind>();
             binds.add(new Bind(volumeName, varVolume, true));
             binds.add(new Bind("/lib/modules", modVolume, ro));
+            binds.add(new Bind("/dev/mapper", devMapperVolume));
 
             ccc.withEntrypoint("/usr/local/bin/entrypoint", "/sbin/init")
                 .withTty(true)
@@ -229,6 +232,7 @@ public class CreateContainer extends Container implements Callable<Integer> {
                 untaintNode(client);
 
                 // Provision the cluster with core components: ingress, etc
+                /*
                 List<HasMetadata> items = client.load(fetchIngressResourcesFromURL("latest")).items();
                 LOGGER.info("Deploying the ingress controller resources ...");
                 for (HasMetadata item : items) {
@@ -300,6 +304,7 @@ public class CreateContainer extends Container implements Callable<Integer> {
                     .build();
                     // @formatter:on
                 client.resource(tektonIngressRoute).create();
+                */
 
                 return 0;
             } catch (DockerClientException e) {
@@ -398,6 +403,10 @@ public class CreateContainer extends Container implements Callable<Integer> {
                 "--node-name=" + kubeAdmConfig.getNodeName(),
                 // increase verbosity for debugging
                 "--v=6");
+
+            LOGGER.info("Copy the kube-admin.conf file to /kind/kubeadm.conf. This is needed to allow to restart the cluster / container");
+            execInContainer("cp",kubeAdmConfigPath, "/kind/kubeadm.conf");
+
         } catch (final RuntimeException | IOException | InterruptedException e) {
             try {
                 LOGGER.error("{}", execInContainer("journalctl").getStdout(), "JOURNAL: ");
