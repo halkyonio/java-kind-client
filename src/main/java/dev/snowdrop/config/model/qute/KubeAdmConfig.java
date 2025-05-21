@@ -10,6 +10,15 @@ public class KubeAdmConfig {
     private String serviceSubnet;
     private String kubernetesVersion;
     private String nodeLabels;
+    private String providerId;
+
+    public String getProviderId() {
+        return providerId;
+    }
+
+    public void setProviderId(String providerId) {
+        this.providerId = providerId;
+    }
 
     public String getBindPort() {
         return bindPort;

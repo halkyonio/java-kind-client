@@ -34,6 +34,7 @@ public class QuteTemplateTest {
         cfg.setKubernetesVersion("v1.32.2");
         cfg.setPodSubnet("10.244.0.0/16");
         cfg.setServiceSubnet("10.96.0.0/16");
+        cfg.setProviderId("podman");
 
         var result = kubeadm.data("cfg",cfg).render();
         assertTrue(result.contains("clusterName: my-kind"));

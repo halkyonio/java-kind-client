@@ -163,6 +163,8 @@ public class CreateContainer extends Container implements Callable<Integer> {
                 ccc.withEnv(environment.toArray(new String[0]));
             }
             ccc.withEnv("KUBECONFIG", "/etc/kubernetes/admin.conf");
+            ccc.withEnv("container",cfg.providerId());
+            ccc.withHostName(containerInfo.getId());
 
             CreateContainerResponse containerResponse;
             try {
@@ -190,6 +192,7 @@ public class CreateContainer extends Container implements Callable<Integer> {
 
                 // Generate the kubeAdmConfig
                 KubeAdmConfig kubeAdmConfig = kkc.prepareTemplateParams(containerInfo);
+                kubeAdmConfig.setProviderId(cfg.providerId());
 
                 // TODO: When we use the Docker engine, then we must patch the /etc/hosts file as the internalIP address is not bind to the nodeName
                 // String[] cmd = {
