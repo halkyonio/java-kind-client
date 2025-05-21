@@ -1,5 +1,6 @@
 package dev.snowdrop.command;
 
+import com.github.dockerjava.api.exception.NotFoundException;
 import com.github.dockerjava.api.exception.NotModifiedException;
 import dev.snowdrop.Container;
 import dev.snowdrop.config.ClientConfig;
@@ -34,7 +35,9 @@ public class StopContainer extends Container implements Callable<Integer> {
                 .withTimeout(stopTimeout)
                 .exec();
             LOGGER.info("Container stopped: {}", containerIdOrName);
-            closeDockerClient();
+            return 0;
+        } catch (NotFoundException nfe) {
+            LOGGER.warn("The container with ID or name: {} do not exist and can't be stopped", containerIdOrName);
             return 0;
         } catch (NotModifiedException e) {
             LOGGER.info("Container is already stopped {}.", containerIdOrName);
@@ -42,6 +45,8 @@ public class StopContainer extends Container implements Callable<Integer> {
         } catch (Exception e) {
             LOGGER.error("Error stopping container {}: {}", containerIdOrName, e.getMessage(), e);
             return 1;
+        } finally {
+            closeDockerClient();
         }
     }
 }

@@ -1,6 +1,5 @@
 package dev.snowdrop.config;
 
-import io.quarkus.runtime.annotations.ConfigRoot;
 import io.smallrye.config.ConfigMapping;
 import io.smallrye.config.WithDefault;
 import io.smallrye.config.WithName;
@@ -13,6 +12,7 @@ public interface ClientConfig {
     /**
      * Version of kubernetes to be installed
      */
+    @WithName("kubernetesVersion")
     Optional<String> kubernetesVersion();
 
     /**
@@ -30,17 +30,20 @@ public interface ClientConfig {
      * Binding configuration
      * It represents the ports to be bind between the container and the host
      */
+    @WithName("bindings")
      List<Binding> binding();
 
      interface Binding {
          /**
           * hostPort
           */
+         @WithName("hostPort")
          String hostPort();
 
          /**
           * containerPort
           */
+         @WithName("containerPort")
          String containerPort();
      }
 }

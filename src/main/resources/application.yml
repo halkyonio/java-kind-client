@@ -1,0 +1,21 @@
+# kind config file:
+# nodes:
+#  - role: control-plane
+#    image: "kindest/node:v1.31.4"
+#    labels:
+#      ingress-ready: "true"
+#    extraPortMappings:
+#      - containerPort: 443
+#        hostPort: 8443
+#        listenAddress: "127.0.0.1"
+#        protocol: TCP
+
+kind:
+  name: kind1
+  kubernetesVersion: v1.32.0
+  labels: "ingress-ready=true"
+  bindings:
+  - containerPort: 443
+    hostPort: 8443
+  - containerPort: 32222
+    hostPort: 32222

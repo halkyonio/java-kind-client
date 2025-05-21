@@ -1,5 +1,6 @@
 package dev.snowdrop.command;
 
+import com.github.dockerjava.api.exception.NotFoundException;
 import dev.snowdrop.Container;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -24,12 +25,15 @@ public class DeleteContainer extends Container implements Callable<Integer> {
             dockerClient.removeContainerCmd(containerId)
                 .exec();
             LOGGER.info("Container deleted: {}", containerIdOrName);
-
-            closeDockerClient();
+            return 0;
+        } catch (NotFoundException nfe) {
+            LOGGER.warn("The container with ID or name: {} do not exist and can't be stopped", containerIdOrName);
             return 0;
         } catch (Exception e) {
             LOGGER.error("Error deleting the container {}: {}", containerIdOrName, e.getMessage(), e);
             return 1;
+        } finally {
+            closeDockerClient();
         }
     }
 }

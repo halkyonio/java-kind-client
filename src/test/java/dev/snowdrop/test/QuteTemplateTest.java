@@ -1,5 +1,6 @@
 package dev.snowdrop.test;
 
+import dev.snowdrop.config.ClientConfig;
 import dev.snowdrop.config.model.qute.KubeAdmConfig;
 import io.quarkus.qute.Location;
 import io.quarkus.qute.Template;
