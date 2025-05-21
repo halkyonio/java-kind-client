@@ -30,20 +30,20 @@ bootstrapTokens:
 - token: abcdef.0123456789abcdef
 kind: InitConfiguration
 localAPIEndpoint:
-  advertiseAddress: {cfg.nodeIp} # !! Change every time as we restart the container
+  advertiseAddress: {cfg.nodeIp} 
   bindPort: {cfg.bindPort}
 nodeRegistration:
   criSocket: unix:///run/containerd/containerd.sock
   kubeletExtraArgs:
     fail-swap-on: "false"
-    node-ip: {cfg.nodeIp} # !! Change every time as we restart the container
+    node-ip: {cfg.nodeIp} 
     node-labels: {cfg.nodeLabels}
     provider-id: kind://podman/{cfg.nodeName}/{cfg.nodeName}-control-plane
 ---
 apiVersion: kubeadm.k8s.io/v1beta3
 controlPlane:
   localAPIEndpoint:
-    advertiseAddress: {cfg.nodeIp} # !! Change every time as we restart the container
+    advertiseAddress: {cfg.nodeIp} 
     bindPort: {cfg.bindPort}
 discovery:
   bootstrapToken:
@@ -55,7 +55,7 @@ nodeRegistration:
   criSocket: unix:///run/containerd/containerd.sock
   kubeletExtraArgs:
     fail-swap-on: "false"
-    node-ip: {cfg.nodeIp} # !! Change every time as we restart the container
+    node-ip: {cfg.nodeIp} 
     node-labels: {cfg.nodeLabels}
     provider-id: kind://podman/{cfg.nodeName}/{cfg.nodeName}-control-plane
 skipPhases:
