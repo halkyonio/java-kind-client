@@ -44,11 +44,8 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
 import static com.github.dockerjava.api.model.AccessMode.ro;
-import static dev.snowdrop.component.ingress.ResourceUtils.fetchIngressResourcesFromURL;
-import static dev.snowdrop.component.tekton.ResourceUtils.*;
 import static dev.snowdrop.config.KubeConfigUtils.parseKubeConfig;
 import static dev.snowdrop.config.KubeConfigUtils.serializeKubeConfig;
-import static dev.snowdrop.config.KubernetesClientUtils.waitTillPodSelectedByLabelsIsReady;
 import static dev.snowdrop.kind.KindVersion.defaultKubernetesVersion;
 import static dev.snowdrop.kind.KubernetesConfig.*;
 import static dev.snowdrop.kind.PortUtils.getFreePortOnHost;
@@ -56,7 +53,6 @@ import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Arrays.asList;
 import static java.util.Collections.emptyList;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 // Example Subcommand: Create
 @CommandLine.Command(name = "create", description = "Create a new container")
@@ -216,8 +212,9 @@ public class CreateContainer extends Container implements Callable<Integer> {
 
                 // Add to the kubeConfig's user file the cluster definition to access the cluster
                 String kubeconfig = new String(getFileFromContainer(containerInfo.getId(), "/etc/kubernetes/admin.conf"), StandardCharsets.UTF_8);
+                LOGGER.debug("Kubeconfig file of the server: {}", kubeconfig);
                 kubeconfig = replaceServerInKubeconfig(getClusterIpAndPort(containerInfo), kubeconfig);
-                LOGGER.debug("Kubeconfig: {}", kubeconfig);
+                LOGGER.debug("Kubeconfig where IP and Port have been changed for the host: {}", kubeconfig);
 
                 String pathToConfigFile = String.format("%s-%s",containerInfo.getName().replaceAll("/", ""),"kube.conf");
                 LOGGER.info("Your kubernetes cluster config file is available at: {}",pathToConfigFile);
