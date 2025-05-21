@@ -1,17 +1,12 @@
-package dev.snowdrop.command;
+package dev.snowdrop.command.cluster;
 
 import com.github.dockerjava.api.exception.NotFoundException;
 import com.github.dockerjava.api.exception.NotModifiedException;
 import dev.snowdrop.Container;
-import dev.snowdrop.config.ClientConfig;
-import jakarta.inject.Inject;
-import org.eclipse.microprofile.config.ConfigProvider;
-import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import picocli.CommandLine;
 
-import java.util.Arrays;
 import java.util.concurrent.Callable;
 
 import static dev.snowdrop.container.ContainerUtils.fetchContainerId;

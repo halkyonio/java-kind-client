@@ -1,4 +1,4 @@
-package dev.snowdrop.command;
+package dev.snowdrop.command.cluster;
 
 import com.github.dockerjava.api.exception.NotFoundException;
 import dev.snowdrop.Container;

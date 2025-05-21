@@ -1,4 +1,4 @@
-package dev.snowdrop.command;
+package dev.snowdrop.command.cluster;
 
 import com.github.dockerjava.api.async.ResultCallback;
 import com.github.dockerjava.api.command.CopyArchiveFromContainerCmd;
