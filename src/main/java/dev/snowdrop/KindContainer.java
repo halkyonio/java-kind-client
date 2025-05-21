@@ -21,12 +21,7 @@ public class KindContainer {
                 if (networks.isEmpty()) {
                     return null;
                 }
-                ContainerNetwork cn = networks.get("podman");
-                if (cn != null && cn.getIpAddress() != "") {
-                    return cn.getIpAddress();
-                } else {
-                    return null;
-                }
+                return networks.entrySet().iterator().next().getValue().getIpAddress();
             },
             CONTAINER_IP_TIMEOUT_MSECS,
             "Waiting for network to receive internal IP address...",
