@@ -5,10 +5,7 @@ import com.github.dockerjava.api.command.CopyArchiveFromContainerCmd;
 import com.github.dockerjava.api.command.CreateContainerCmd;
 import com.github.dockerjava.api.command.CreateContainerResponse;
 import com.github.dockerjava.api.command.InspectContainerResponse;
-import com.github.dockerjava.api.exception.DockerClientException;
-import com.github.dockerjava.api.exception.InternalServerErrorException;
-import com.github.dockerjava.api.exception.NotFoundException;
-import com.github.dockerjava.api.exception.NotModifiedException;
+import com.github.dockerjava.api.exception.*;
 import com.github.dockerjava.api.model.*;
 import dev.snowdrop.Container;
 import dev.snowdrop.config.ClientConfig;
@@ -119,7 +116,6 @@ public class CreateContainer extends Container implements Callable<Integer> {
             // TODO: Add a method to validate of the kube version matches an existing kind image !
             kkc.setKubernetesVersion(kubeVersion);
 
-
             // Create the Kind Image Name
             var kindImageName = getKindImageName(kubeVersion);
 
@@ -194,6 +190,20 @@ public class CreateContainer extends Container implements Callable<Integer> {
 
                 // Generate the kubeAdmConfig
                 KubeAdmConfig kubeAdmConfig = kkc.prepareTemplateParams(containerInfo);
+
+                // TODO: When we use the Docker engine, then we must patch the /etc/hosts file as the internalIP address is not bind to the nodeName
+                // String[] cmd = {
+                //     "echo \"",
+                //     kubeAdmConfig.getNodeIp(),
+                //     " ",
+                //     kubeAdmConfig.getNodeName(),
+                //     "\"",
+                //     ">>",
+                //     "/etc/hosts"
+                // };
+                // LOGGER.info("Bind internal IP eth0 with node name: {}", Arrays.stream(cmd).toList());
+                // execInContainer(cmd);
+
                 // Create the kubeAdmConfig file and run kubeadm init
                 kubeadmInit(containerInfo, kubeAdmConfig);
 
@@ -216,8 +226,8 @@ public class CreateContainer extends Container implements Callable<Integer> {
                 kubeconfig = replaceServerInKubeconfig(getClusterIpAndPort(containerInfo), kubeconfig);
                 LOGGER.debug("Kubeconfig where IP and Port have been changed for the host: {}", kubeconfig);
 
-                String pathToConfigFile = String.format("%s-%s",containerInfo.getName().replaceAll("/", ""),"kube.conf");
-                LOGGER.info("Your kubernetes cluster config file is available at: {}",pathToConfigFile);
+                String pathToConfigFile = String.format("%s-%s", containerInfo.getName().replaceAll("/", ""), "kube.conf");
+                LOGGER.info("Your kubernetes cluster config file is available at: {}", pathToConfigFile);
                 try (PrintWriter out = new PrintWriter(pathToConfigFile)) {
                     out.println(kubeconfig);
                 }
@@ -305,11 +315,14 @@ public class CreateContainer extends Container implements Callable<Integer> {
 
                 return 0;
             } catch (DockerClientException e) {
-                LOGGER.info("Timeout to get the kind container response ...");
+                LOGGER.warn("Timeout to get the kind container response ...");
                 return 0;
             } catch (NotModifiedException e) {
-                LOGGER.info("Container is already running {}.", containerInfo.getId());
-                return 0;
+                LOGGER.warn("Container is already running {}.", containerInfo.getId());
+                return 1;
+            } catch (ConflictException e) {
+                LOGGER.error("The container is already in use by a container !");
+                return 1;
             } catch (NotFoundException e) {
                 LOGGER.error("Container not found: " + containerInfo.getId());
                 return 1;
