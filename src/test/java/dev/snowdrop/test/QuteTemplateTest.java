@@ -39,7 +39,7 @@ public class QuteTemplateTest {
         assertTrue(result.contains("clusterName: my-kind"));
         assertTrue(result.contains("node-ip: 10.88.0.51"));
         assertTrue(result.contains("advertiseAddress: 10.88.0.51"));
-        assertTrue(result.contains("controlPlaneEndpoint: 10.88.0.51:6443"));
+        assertTrue(result.contains("controlPlaneEndpoint: my-kind:6443"));
         assertTrue(result.contains("service-node-port-range: 30000-32767"));
         assertTrue(result.contains("kubernetesVersion: v1.32.2"));
         assertTrue(result.contains("podSubnet: 10.244.0.0/16"));
