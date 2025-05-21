@@ -27,7 +27,7 @@ public class DeleteContainer extends Container implements Callable<Integer> {
             LOGGER.info("Container deleted: {}", containerIdOrName);
             return 0;
         } catch (NotFoundException nfe) {
-            LOGGER.warn("The container with ID or name: {} do not exist and can't be stopped", containerIdOrName);
+            LOGGER.warn("The container with ID or name: {} do not exist and can't be deleted !", containerIdOrName);
             return 0;
         } catch (Exception e) {
             LOGGER.error("Error deleting the container {}: {}", containerIdOrName, e.getMessage(), e);

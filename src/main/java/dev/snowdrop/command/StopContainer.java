@@ -37,7 +37,7 @@ public class StopContainer extends Container implements Callable<Integer> {
             LOGGER.info("Container stopped: {}", containerIdOrName);
             return 0;
         } catch (NotFoundException nfe) {
-            LOGGER.warn("The container with ID or name: {} do not exist and can't be stopped", containerIdOrName);
+            LOGGER.warn("The container with ID or name: {} do not exist and can't be stopped !", containerIdOrName);
             return 0;
         } catch (NotModifiedException e) {
             LOGGER.info("Container is already stopped {}.", containerIdOrName);
