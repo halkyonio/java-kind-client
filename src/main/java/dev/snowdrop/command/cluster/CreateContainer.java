@@ -164,7 +164,6 @@ public class CreateContainer extends Container implements Callable<Integer> {
             }
             ccc.withEnv("KUBECONFIG", "/etc/kubernetes/admin.conf");
             ccc.withEnv("container",cfg.providerId());
-            ccc.withHostName(containerInfo.getId());
 
             CreateContainerResponse containerResponse;
             try {
