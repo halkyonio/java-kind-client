@@ -26,6 +26,7 @@ public class Container {
     private static final Logger LOGGER = LoggerFactory.getLogger(Container.class);
     protected static DockerClient dockerClient;
     protected static InspectContainerResponse containerInfo;
+    protected static final String KIND_NETWORK = "kind";
 
     protected static void initDockerClient() {
         try {

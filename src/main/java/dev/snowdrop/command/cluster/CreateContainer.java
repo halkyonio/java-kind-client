@@ -7,6 +7,7 @@ import com.github.dockerjava.api.command.CreateContainerResponse;
 import com.github.dockerjava.api.command.InspectContainerResponse;
 import com.github.dockerjava.api.exception.*;
 import com.github.dockerjava.api.model.*;
+import com.google.common.collect.Maps;
 import dev.snowdrop.Container;
 import dev.snowdrop.config.ClientConfig;
 import dev.snowdrop.config.model.KubeConfig;
@@ -123,7 +124,8 @@ public class CreateContainer extends Container implements Callable<Integer> {
             ImageUtils.pullImage(dockerClient, kindImageName);
 
             // Build the command
-            CreateContainerCmd ccc = dockerClient.createContainerCmd(kindImageName);
+            CreateContainerCmd ccc = dockerClient.createContainerCmd(kindImageName)
+                .withHostName(containerName);
 
             if (containerName != null) {
                 ccc.withName(containerName);
@@ -159,11 +161,22 @@ public class CreateContainer extends Container implements Callable<Integer> {
             ccc.getHostConfig().withPrivileged(true);
             ccc.getHostConfig().withTmpFs(TMP_FILESYSTEMS);
 
+            // Labels
+            ccc.withLabels(Map.of(
+                "io.x-k8s.kind.cluster", containerName,
+                "io.x-k8s.kind.role", "control-plane"
+            ));
+
             if (environment != null && !environment.isEmpty()) {
                 ccc.withEnv(environment.toArray(new String[0]));
             }
-            ccc.withEnv("KUBECONFIG", "/etc/kubernetes/admin.conf");
-            ccc.withEnv("container",cfg.providerId());
+            ccc.withEnv(
+                "KUBECONFIG=/etc/kubernetes/admin.conf",
+                "container=" + cfg.providerId()
+            );
+
+            // Add kind network
+            ccc.getHostConfig().withNetworkMode(KIND_NETWORK);
 
             CreateContainerResponse containerResponse;
             try {
@@ -192,19 +205,6 @@ public class CreateContainer extends Container implements Callable<Integer> {
                 // Generate the kubeAdmConfig
                 KubeAdmConfig kubeAdmConfig = kkc.prepareTemplateParams(containerInfo);
                 kubeAdmConfig.setProviderId(cfg.providerId());
-
-                // TODO: When we use the Docker engine, then we must patch the /etc/hosts file as the internalIP address is not bind to the nodeName
-                // String[] cmd = {
-                //     "echo \"",
-                //     kubeAdmConfig.getNodeIp(),
-                //     " ",
-                //     kubeAdmConfig.getNodeName(),
-                //     "\"",
-                //     ">>",
-                //     "/etc/hosts"
-                // };
-                // LOGGER.info("Bind internal IP eth0 with node name: {}", Arrays.stream(cmd).toList());
-                // execInContainer(cmd);
 
                 // Create the kubeAdmConfig file and run kubeadm init
                 kubeadmInit(containerInfo, kubeAdmConfig);
