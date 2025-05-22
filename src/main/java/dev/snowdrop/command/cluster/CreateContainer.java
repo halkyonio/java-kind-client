@@ -38,9 +38,10 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
 import static com.github.dockerjava.api.model.AccessMode.ro;
-import static dev.snowdrop.component.ingress.Utils.installIngress;
-import static dev.snowdrop.component.tekton.Utils.installTekton;
-import static dev.snowdrop.component.tekton.Utils.installTektonDashboard;
+import static dev.snowdrop.internal.controller.PackageController.initPackageController;
+import static dev.snowdrop.internal.resource.ingress.Utils.installIngress;
+import static dev.snowdrop.internal.resource.tekton.Utils.installTekton;
+import static dev.snowdrop.internal.resource.tekton.Utils.installTektonDashboard;
 import static dev.snowdrop.config.KubeConfigUtils.parseKubeConfig;
 import static dev.snowdrop.config.KubeConfigUtils.serializeKubeConfig;
 import static dev.snowdrop.container.ContainerUtils.getFreePortOnHost;
@@ -248,9 +249,9 @@ public class CreateContainer extends Container implements Callable<Integer> {
                 untaintNode(client);
 
                 // Provision the cluster with core components: ingress, etc
-                installIngress(client, "v1.11.5");
-                installTekton(client,"v1.0.0");
-                installTektonDashboard(client,"v0.32.0");
+                //installIngress(client, "v1.11.5");
+                //installTekton(client,"v1.0.0");
+                //installTektonDashboard(client,"v0.32.0");
 
                 return 0;
             } catch (DockerClientException e) {

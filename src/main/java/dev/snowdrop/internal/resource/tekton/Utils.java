@@ -1,4 +1,4 @@
-package dev.snowdrop.component.tekton;
+package dev.snowdrop.internal.resource.tekton;
 
 import io.fabric8.kubernetes.api.model.HasMetadata;
 import io.fabric8.kubernetes.api.model.networking.v1.Ingress;

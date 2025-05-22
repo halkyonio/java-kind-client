@@ -1,4 +1,4 @@
-package dev.snowdrop.component.ingress;
+package dev.snowdrop.internal.resource.ingress;
 
 import io.fabric8.kubernetes.api.model.HasMetadata;
 import io.fabric8.kubernetes.client.KubernetesClient;
