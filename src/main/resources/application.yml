@@ -19,7 +19,7 @@ kind:
   name: kind1
   kubernetesVersion: v1.32.0
   labels: "ingress-ready=true"
-  providerId: docker # podman
+  providerId: podman
   bindings:
   - containerPort: 443
     hostPort: 8443

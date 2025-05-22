@@ -154,10 +154,18 @@ public class CreateContainer extends Container implements Callable<Integer> {
             List<PortBinding> pbs = new ArrayList<PortBinding>();
             // Bind the Kube API port with a free Host port
             pbs.add(PortBinding.parse(String.format("%s:%s", getFreePortOnHost(), KUBE_API_PORT)));
-            // Bind the port of the ingress service with the Host port 8443
-            pbs.add(PortBinding.parse(String.format("%s:%s", "8443", "443")));
-
+            // Add additional binding ports
+            if (cfg.binding() != null) {
+                cfg.binding().stream()
+                    .map(cfb -> {
+                        PortBinding binding = PortBinding.parse(String.format("%s:%s", cfb.hostPort(), cfb.containerPort()));
+                        LOGGER.info("Added binding: {}:{}", cfb.hostPort(), cfb.containerPort());
+                        return binding;
+                    })
+                    .forEach(pbs::add);
+            }
             ccc.getHostConfig().withPortBindings(pbs);
+
             ccc.getHostConfig().withPrivileged(true);
             ccc.getHostConfig().withTmpFs(TMP_FILESYSTEMS);
 
