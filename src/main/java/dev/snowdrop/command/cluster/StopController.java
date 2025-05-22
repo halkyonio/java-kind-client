@@ -16,7 +16,7 @@ import java.util.concurrent.TimeUnit;
 import static dev.snowdrop.internal.controller.PackageController.initPackageController;
 import static dev.snowdrop.internal.controller.PackageController.stopPackageController;
 
-@CommandLine.Command(name = "stop", description = "Stop the shared informer watching the Package resources")
+@CommandLine.Command(name = "stop-controller", description = "Stop the shared informer watching the Package resources")
 public class StopController implements Callable<Integer> {
     private static final Logger LOGGER = LoggerFactory.getLogger(StopController.class);
     private static final String KUBECONFIG_PATH = "/Users/cmoullia/code/ch007m/java-kind-client/kind1-kube.conf";

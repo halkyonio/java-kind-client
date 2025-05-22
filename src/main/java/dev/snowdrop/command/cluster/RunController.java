@@ -12,15 +12,13 @@ import picocli.CommandLine;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.URL;
-import java.util.Enumeration;
 import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
 
 import static dev.snowdrop.internal.controller.PackageController.initPackageController;
 import static java.lang.String.format;
 
-@CommandLine.Command(name = "run", description = "Run the shared informer watching the resources")
+@CommandLine.Command(name = "run-controller", description = "Run the shared informer watching the resources")
 public class RunController implements Callable<Integer> {
     private static final Logger LOGGER = LoggerFactory.getLogger(RunController.class);
     private static final String KUBECONFIG_PATH = "/Users/cmoullia/code/ch007m/java-kind-client/kind1-kube.conf";

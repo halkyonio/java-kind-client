@@ -12,7 +12,8 @@ import picocli.CommandLine;
         StopContainer.class,
         StartContainer.class,
         DeleteContainer.class,
-        RunController.class
+        RunController.class,
+        StopController.class
 })
 public class KindCommands extends Container {
     static {

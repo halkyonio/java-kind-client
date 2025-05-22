@@ -1,4 +1,4 @@
-apiVersion: halkyonio.io/v1alpha1
+apiVersion: halkyon.io/v1alpha1
 kind: Package
 metadata:
   name: my-helm-app
