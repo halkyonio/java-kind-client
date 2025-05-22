@@ -7,8 +7,6 @@ import dev.snowdrop.command.cluster.StopContainer;
 import io.quarkus.picocli.runtime.annotations.TopCommand;
 import picocli.CommandLine;
 
-import static dev.snowdrop.Container.initDockerClient;
-
 @TopCommand
 @CommandLine.Command(
     mixinStandardHelpOptions = true,
@@ -18,7 +16,7 @@ import static dev.snowdrop.Container.initDockerClient;
         StartContainer.class,
         DeleteContainer.class
 })
-public class KindClient extends KindContainer {
+public class KindClient extends Container {
     static {
         initDockerClient();
     }

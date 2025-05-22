@@ -6,16 +6,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
 
 import static dev.snowdrop.Container.execInContainer;
-import static dev.snowdrop.KindContainer.getInternalIpAddress;
+import static dev.snowdrop.container.ContainerUtils.getInternalIpAddress;
 import static dev.snowdrop.kind.KubernetesConfig.*;
-import static java.util.Arrays.asList;
-import static java.util.stream.Collectors.joining;
 
 public class KindKubernetesConfiguration {
     private static final Logger LOGGER = LoggerFactory.getLogger(KindKubernetesConfiguration.class);
