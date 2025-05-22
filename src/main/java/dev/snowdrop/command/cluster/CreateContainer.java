@@ -7,7 +7,6 @@ import com.github.dockerjava.api.command.CreateContainerResponse;
 import com.github.dockerjava.api.command.InspectContainerResponse;
 import com.github.dockerjava.api.exception.*;
 import com.github.dockerjava.api.model.*;
-import com.google.common.collect.Maps;
 import dev.snowdrop.Container;
 import dev.snowdrop.config.ClientConfig;
 import dev.snowdrop.config.model.KubeConfig;
@@ -15,10 +14,7 @@ import dev.snowdrop.config.model.qute.KubeAdmConfig;
 import dev.snowdrop.config.model.qute.StorageConfig;
 import dev.snowdrop.container.ImageUtils;
 import dev.snowdrop.kind.KindKubernetesConfiguration;
-import io.fabric8.kubernetes.api.model.HasMetadata;
 import io.fabric8.kubernetes.api.model.Taint;
-import io.fabric8.kubernetes.api.model.networking.v1.Ingress;
-import io.fabric8.kubernetes.api.model.networking.v1.IngressBuilder;
 import io.fabric8.kubernetes.client.Config;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.KubernetesClientBuilder;
@@ -42,6 +38,9 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
 import static com.github.dockerjava.api.model.AccessMode.ro;
+import static dev.snowdrop.component.ingress.Utils.installIngress;
+import static dev.snowdrop.component.tekton.Utils.installTekton;
+import static dev.snowdrop.component.tekton.Utils.installTektonDashboard;
 import static dev.snowdrop.config.KubeConfigUtils.parseKubeConfig;
 import static dev.snowdrop.config.KubeConfigUtils.serializeKubeConfig;
 import static dev.snowdrop.container.ContainerUtils.getFreePortOnHost;
@@ -249,79 +248,9 @@ public class CreateContainer extends Container implements Callable<Integer> {
                 untaintNode(client);
 
                 // Provision the cluster with core components: ingress, etc
-                /*
-                List<HasMetadata> items = client.load(fetchIngressResourcesFromURL("latest")).items();
-                LOGGER.info("Deploying the ingress controller resources ...");
-                for (HasMetadata item : items) {
-                    var res = client.resource(item).create();
-                    assertNotNull(res);
-                }
-                waitTillPodSelectedByLabelsIsReady(client, Map.of(
-                        "app.kubernetes.io/name", "ingress-nginx",
-                        "app.kubernetes.io/component", "controller"),
-                    "ingress-nginx");
-
-                // Let's make a test and deploy Tekton
-                var TEKTON_CONTROLLER_NAMESPACE = "tekton-pipelines";
-
-                // Install the Tekton resources using the YAML manifest file
-                items = client.load(fetchTektonResourcesFromURL("v1.0.0")).items();
-                LOGGER.info("Deploying the tekton resources ...");
-                for (HasMetadata item : items) {
-                    var res = client.resource(item).create();
-                    assertNotNull(res);
-                }
-
-                // Waiting till the Tekton pods are ready/running ...
-                waitTillPodSelectedByLabelsIsReady(client,
-                    Map.of("app.kubernetes.io/name", "controller",
-                        "app.kubernetes.io/part-of", "tekton-pipelines"),
-                    TEKTON_CONTROLLER_NAMESPACE);
-
-                // TODO
-                items = client.load(fetchTektonDashboardResourcesFromURL()).items();
-                LOGGER.info("Deploying the tekton dashboard resources ...");
-                for (HasMetadata item : items) {
-                    var res = client.resource(item).inNamespace(TEKTON_CONTROLLER_NAMESPACE);
-                    res.create();
-                    assertNotNull(res);
-                }
-
-                // Waiting till the Tekton dashboard pod is ready/running ...
-                waitTillPodSelectedByLabelsIsReady(client,
-                    Map.of("app.kubernetes.io/name", "dashboard",
-                        "app.kubernetes.io/part-of", "tekton-dashboard"),
-                    TEKTON_CONTROLLER_NAMESPACE);
-
-                // Create the Tekton dashboard ingress route
-                LOGGER.info("Creating the ingress route for the tekton dashboard ...");
-                Ingress tektonIngressRoute = new IngressBuilder()
-                    // @formatter:off
-                    .withNewMetadata()
-                      .withName("tekton-ui")
-                      .withNamespace(TEKTON_CONTROLLER_NAMESPACE)
-                    .endMetadata()
-                    .withNewSpec()
-                      .addNewRule()
-                        .withHost(TEKTON_INGRESS_HOST_NAME)
-                        .withNewHttp()
-                          .addNewPath()
-                            .withPath("/")
-                            .withPathType("Prefix") // This field is mandatory
-                            .withNewBackend()
-                              .withNewService()
-                                .withName(TEKTON_DASHBOARD_NAME)
-                                .withNewPort().withNumber(9097).endPort()
-                              .endService()
-                            .endBackend()
-                          .endPath()
-                        .endHttp()
-                      .endRule()
-                    .endSpec()
-                    .build();
-                    // @formatter:on
-                client.resource(tektonIngressRoute).create();
-                */
+                installIngress(client, "v1.11.5");
+                installTekton(client,"v1.0.0");
+                installTektonDashboard(client,"v0.32.0");
 
                 return 0;
             } catch (DockerClientException e) {

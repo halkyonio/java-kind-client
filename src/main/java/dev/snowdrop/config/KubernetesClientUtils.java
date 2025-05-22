@@ -9,13 +9,13 @@ import java.util.concurrent.TimeUnit;
 
 public class KubernetesClientUtils {
     private static final long TIME_OUT = 360;
-    private static final Logger LOG = Logger.getLogger(KubernetesClientUtils.class);
+    private static final Logger LOGGER = Logger.getLogger(KubernetesClientUtils.class);
 
     public static void waitTillPodSelectedByLabelsIsReady(KubernetesClient client, Map<String, String> labels, String ns) {
         client.resources(Pod.class)
             .inNamespace(ns)
             .withLabels(labels)
             .waitUntilReady(TIME_OUT, TimeUnit.SECONDS);
-        LOG.infof("Pod selected with labels: %s is ready", labels);
+        LOGGER.infof("Pod selected with labels: %s is ready", labels);
     }
 }
