@@ -1,9 +1,6 @@
 package dev.snowdrop;
 
-import dev.snowdrop.command.cluster.CreateContainer;
-import dev.snowdrop.command.cluster.DeleteContainer;
-import dev.snowdrop.command.cluster.StartContainer;
-import dev.snowdrop.command.cluster.StopContainer;
+import dev.snowdrop.command.cluster.*;
 import io.quarkus.picocli.runtime.annotations.TopCommand;
 import picocli.CommandLine;
 
@@ -14,9 +11,10 @@ import picocli.CommandLine;
         CreateContainer.class,
         StopContainer.class,
         StartContainer.class,
-        DeleteContainer.class
+        DeleteContainer.class,
+        RunController.class
 })
-public class KindClient extends Container {
+public class KindCommands extends Container {
     static {
         initDockerClient();
     }

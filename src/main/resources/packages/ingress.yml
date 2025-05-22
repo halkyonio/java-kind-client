@@ -1,0 +1,13 @@
+apiVersion: halkyonio.io/v1alpha1
+kind: Package
+metadata:
+  name: my-helm-app
+  namespace: default
+spec:
+  tool: Helm
+  url: https://charts.helm.sh/stable/nginx-ingress-1.41.3.tgz
+  version: 1.41.3
+  values:
+    service:
+      type: ClusterIP
+      port: 80

@@ -1,13 +1,10 @@
 package dev.snowdrop.internal.controller;
 
 import dev.snowdrop.internal.crd.Package;
-import io.fabric8.kubernetes.api.model.KubernetesResourceList;
 import io.fabric8.kubernetes.client.KubernetesClient;
-import io.fabric8.kubernetes.client.KubernetesClientBuilder;
-import io.fabric8.kubernetes.client.dsl.MixedOperation;
-import io.fabric8.kubernetes.client.dsl.Resource;
 import io.fabric8.kubernetes.client.informers.ResourceEventHandler;
 import io.fabric8.kubernetes.client.informers.SharedIndexInformer;
+import io.fabric8.kubernetes.client.informers.SharedInformerFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -16,32 +13,49 @@ public class PackageController {
 
     public static void initPackageController(KubernetesClient client) {
         try {
-            MixedOperation<Package, KubernetesResourceList<Package>, Resource<Package>> packageOp = client.resources(Package.class);
-            SharedIndexInformer<Package> bookSharedIndexInformer = packageOp.inNamespace("default").inform(new ResourceEventHandler<>() {
-                @Override
-                public void onAdd(Package pkg) {
-                    LOGGER.info("{} ADDED");
-                }
+            SharedInformerFactory sharedInformerFactory = client.informers();
+            SharedIndexInformer<Package> packageInformer = sharedInformerFactory.sharedIndexInformerFor(Package.class, 30 * 1000L);
+            LOGGER.info("Informer factory initialized.");
 
-                @Override
-                public void onUpdate(Package pkg, Package pkg1) {
-                    LOGGER.info("{} UPDATED");
-                }
+            packageInformer.addEventHandler(
+                new ResourceEventHandler<Package>() {
+                    @Override
+                    public void onAdd(Package pkg) {
+                        LOGGER.info("{} package added", pkg.getMetadata().getName());
+                    }
 
-                @Override
-                public void onDelete(Package pkg, boolean b) {
-                    LOGGER.info("{} DELETED");
-                }
-            });
+                    @Override
+                    public void onUpdate(Package pkg, Package pkg1) {
+                        LOGGER.info("{} package updated", pkg.getMetadata().getName());
+                    }
 
-            Thread.sleep(30 * 1000L);
-            LOGGER.info("Package SharedIndexInformer open for 30 seconds");
+                    @Override
+                    public void onDelete(Package pkg, boolean b) {
+                        LOGGER.info("{} package deleted", pkg.getMetadata().getName());
+                    }
+                });
 
-            bookSharedIndexInformer.close();
-        } catch (
-            InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new RuntimeException(e);
+            LOGGER.info("Starting all registered informers");
+            sharedInformerFactory.startAllRegisteredInformers();
+
+        } catch (Exception e) {
+            LOGGER.error("Error initializing package controller", e);
+        }
+    }
+
+    public static void stopPackageController(KubernetesClient client) {
+        try {
+            SharedInformerFactory sharedInformerFactory = client.informers();
+            SharedIndexInformer<Package> packageInformer = sharedInformerFactory.getExistingSharedIndexInformer(Package.class);
+
+            if (packageInformer != null) {
+                packageInformer.stop();
+                sharedInformerFactory.stopAllRegisteredInformers();
+            } else {
+                LOGGER.warn("No shared informer found for: {}", Package.class.getSimpleName());
+            }
+        } catch (Exception e) {
+            LOGGER.error("Error stopping package controller", e);
         }
     }
 }

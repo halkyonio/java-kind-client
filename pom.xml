@@ -182,6 +182,7 @@
                         </goals>
                         <configuration>
                             <classpath>WITH_COMPILE_DEPENDENCIES</classpath>
+                            <outputDirectory>${project.basedir}/crds</outputDirectory>
                         </configuration>
                     </execution>
                 </executions>
