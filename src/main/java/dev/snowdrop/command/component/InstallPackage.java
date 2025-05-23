@@ -1,4 +1,4 @@
-package dev.snowdrop.command.cluster;
+package dev.snowdrop.command.component;
 
 import io.fabric8.kubernetes.api.model.apiextensions.v1.CustomResourceDefinitionList;
 import io.fabric8.kubernetes.client.DefaultKubernetesClient;
@@ -18,9 +18,9 @@ import java.util.concurrent.TimeUnit;
 import static dev.snowdrop.internal.controller.PackageController.initPackageController;
 import static java.lang.String.format;
 
-@CommandLine.Command(name = "run-controller", description = "Run the shared informer watching the resources")
-public class RunController implements Callable<Integer> {
-    private static final Logger LOGGER = LoggerFactory.getLogger(RunController.class);
+@CommandLine.Command(name = "install", description = "Install a package")
+public class InstallPackage implements Callable<Integer> {
+    private static final Logger LOGGER = LoggerFactory.getLogger(InstallPackage.class);
     private static final String KUBECONFIG_PATH = "/Users/cmoullia/code/ch007m/java-kind-client/kind1-kube.conf";
     private static final String CRD_PACKAGE_FILE_NAME = "packages.halkyon.io-v1.yml";
     private static final String CRD_PATH = "crds/" + CRD_PACKAGE_FILE_NAME;
@@ -51,7 +51,7 @@ public class RunController implements Callable<Integer> {
                         c.getStatus().getAcceptedNames() != null, 60, TimeUnit.SECONDS);
             LOGGER.info("CRD deployed successfully: {}", CRD_PATH);
 
-            client.resource(RunController.class.getClassLoader().getResourceAsStream("packages/ingress.yml")).inNamespace("default").create();
+            client.resource(InstallPackage.class.getClassLoader().getResourceAsStream("packages/ingress.yml")).inNamespace("default").create();
             LOGGER.info("Package YAML deployed successfully.");
 
             // Start the Package controller
