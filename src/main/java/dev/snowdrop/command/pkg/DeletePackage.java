@@ -10,12 +10,15 @@ import org.slf4j.LoggerFactory;
 import picocli.CommandLine;
 
 import java.util.concurrent.Callable;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static dev.snowdrop.internal.controller.PackageController.runPackageController;
 
 @CommandLine.Command(name = "delete", description = "Delete a package")
 public class DeletePackage implements Callable<Integer> {
     private static final Logger LOGGER = LoggerFactory.getLogger(DeletePackage.class);
+    private final CountDownLatch latch = new CountDownLatch(1);
 
     @CommandLine.Parameters(index = "0", description = "The name of package to be deleted")
     String packageName;
@@ -27,24 +30,44 @@ public class DeletePackage implements Callable<Integer> {
     public Integer call() throws Exception {
         System.setProperty("kubeconfig", parent.kubeConfigPath);
         KubernetesClient client = new KubernetesClientBuilder().build();
+        boolean packageFound = false;
 
         try {
-            client.resources(Package.class).list().getItems().forEach(pkg -> {
+            for (Package pkg : client.resources(Package.class).list().getItems()) {
                 if (pkg.getMetadata().getName().equals(packageName)) {
                     var result = client.resource(pkg).inNamespace(parent.namespace).delete();
                     Assertions.assertNotNull(result);
-
-                    // Start the Package controller
-                    LOGGER.info("Launching the Package informer to delete packages...");
-                    runPackageController(client);
-
-                    try {
-                        Thread.sleep(5000);
-                    } catch (InterruptedException e) {
-                        throw new RuntimeException(e);
-                    }
+                    LOGGER.info("Package '{}' deleted successfully.", packageName);
+                    packageFound = true;
+                } else {
+                    LOGGER.warn("Failed to delete package '{}'. It might not exist or there was a permission issue.", packageName);
                 }
-            });
+                // Assuming you only want to process one package matching the name
+                break;
+            }
+
+            if (!packageFound) {
+                LOGGER.warn("Package '{}' not found in namespace '{}'. No deletion performed.", packageName, parent.namespace);
+                // You might choose to exit here if finding the package is a strict requirement
+                // If you still want to run the controller even if deletion didn't happen, continue.
+            }
+
+            Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+                LOGGER.info("Shutdown signal received. Cleaning up...");
+                latch.countDown();
+            }, "app-shutdown-hook"));
+
+            LOGGER.info("Launching the Package informer to delete packages...");
+            runPackageController(client);
+
+            try {
+                latch.await(); // Wait for SIGTERM
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                LOGGER.warn("Main thread interrupted while waiting for shutdown signal.");
+            }
+
+            LOGGER.info("Application stopped.");
             return 0;
 
         } catch (KubernetesClientException kce) {
@@ -53,6 +76,12 @@ public class DeletePackage implements Callable<Integer> {
         } catch (Exception e) {
             LOGGER.error(e.getMessage());
             return 1;
+        } finally {
+            // Ensure the KubernetesClient is closed when the application finishes
+            if (client != null) {
+                client.close();
+                LOGGER.info("Kubernetes client closed.");
+            }
         }
     }
 }
