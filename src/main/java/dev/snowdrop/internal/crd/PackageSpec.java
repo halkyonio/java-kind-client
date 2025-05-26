@@ -8,7 +8,7 @@ public class PackageSpec {
     private String tool;
     private String url;
     private String version;
-    private Map<String, Object> values;
+    private Map<String, Object> valuesObject;
     private KubernetesJob kubernetesJob;
 
     // Getters and Setters
@@ -36,12 +36,12 @@ public class PackageSpec {
         this.version = version;
     }
 
-    public Map<String, Object> getValues() {
-        return values;
+    public Map<String, Object> getValuesObject() {
+        return valuesObject;
     }
 
-    public void setValues(Map<String, Object> values) {
-        this.values = values;
+    public void setValuesObject(Map<String, Object> valuesObject) {
+        this.valuesObject = valuesObject;
     }
 
     public KubernetesJob getKubernetesJob() {
@@ -58,7 +58,7 @@ public class PackageSpec {
             "tool='" + tool + '\'' +
             ", url='" + url + '\'' +
             ", version='" + version + '\'' +
-            ", values=" + values +
+            ", values=" + valuesObject +
             ", kubernetesJob=" + kubernetesJob +
             '}';
     }

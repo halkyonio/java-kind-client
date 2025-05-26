@@ -8,6 +8,8 @@ import org.slf4j.LoggerFactory;
 import picocli.CommandLine;
 
 import java.io.InputStream;
+import java.net.URL;
+import java.util.Set;
 import java.util.concurrent.Callable;
 
 import static dev.snowdrop.internal.controller.PackageController.runPackageController;
@@ -16,8 +18,11 @@ import static dev.snowdrop.internal.controller.PackageController.runPackageContr
 public class InstallPackage implements Callable<Integer> {
     private static final Logger LOGGER = LoggerFactory.getLogger(InstallPackage.class);
 
-    @CommandLine.Parameters(index = "0", description = "The name of package to be installed")
-    String packageName;
+    @CommandLine.Option(
+        names = {"-p","--package"},
+        description = "The url of the package to be installed"
+    )
+    String packageResource;
 
     @CommandLine.ParentCommand
     PackageCommand parent;
@@ -28,28 +33,35 @@ public class InstallPackage implements Callable<Integer> {
         KubernetesClient client = new KubernetesClientBuilder().build();
 
         try {
-            InputStream is = InstallPackage.class.getClassLoader().getResourceAsStream(String.format("packages/%s.yml", packageName));
-            if (is == null) {
-                LOGGER.error("The package resource could not be found");
-                return 1;
-            } else {
-                client.resource(is).inNamespace(parent.namespace).create();
-                LOGGER.info("Package YAML deployed successfully.");
-
-                // Start the Package controller
-                LOGGER.info("Launching the Package informer ...");
-                runPackageController(client);
-
-                Thread.sleep(5000);
-
-                return 0;
+            if (packageResource != null) {
+                InputStream is = new URL(validatePackageURL(packageResource)).openConnection().getInputStream();
+                if (is == null) {
+                    LOGGER.error("The package resource could not be found");
+                    return 1;
+                } else {
+                    client.resource(is).inNamespace(parent.namespace).create();
+                }
             }
+            LOGGER.info("Launching the Package informer ...");
+            runPackageController(client);
+            Thread.sleep(30000);
+            return 0;
         } catch (KubernetesClientException kce) {
             LOGGER.error("Kubernetes client error. Message: {}, Exception: {}", kce.getMessage(), kce);
             return 1;
         } catch (Exception e) {
             LOGGER.error(e.getMessage());
             return 1;
+        }
+    }
+
+    private static String validatePackageURL(String stringToParse) {
+        boolean hasKnownPrefix = Set.of("http://", "https://", "file://").stream().anyMatch(s -> s.startsWith(stringToParse));
+        if (hasKnownPrefix) {
+            return stringToParse.trim().toLowerCase();
+        } else {
+            // We assume that the resource is a file
+            return String.format("file://%s", stringToParse);
         }
     }
 }

@@ -7,7 +7,7 @@ spec:
   tool: Helm
   url: https://charts.helm.sh/stable/nginx-ingress-1.41.3.tgz
   version: 1.41.3
-  values:
+  valuesObject:
     service:
       type: ClusterIP
       port: 80

@@ -36,7 +36,7 @@ spec:
                 type: "string"
               url:
                 type: "string"
-              values:
+              valuesObject:
                 additionalProperties:
                   type: "object"
                 type: "object"
