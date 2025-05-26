@@ -3,6 +3,7 @@ package dev.snowdrop.command.pkg;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.KubernetesClientBuilder;
 import io.fabric8.kubernetes.client.KubernetesClientException;
+import io.halkyon.pkg.crd.Package;
 import org.junit.jupiter.api.Assertions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -28,7 +29,7 @@ public class DeletePackage implements Callable<Integer> {
         KubernetesClient client = new KubernetesClientBuilder().build();
 
         try {
-            client.resources(io.halkyon.pkg.crd.Package.class).list().getItems().forEach(pkg -> {
+            client.resources(Package.class).list().getItems().forEach(pkg -> {
                 if (pkg.getMetadata().getName().equals(packageName)) {
                     var result = client.resource(pkg).inNamespace(parent.namespace).delete();
                     Assertions.assertNotNull(result);
