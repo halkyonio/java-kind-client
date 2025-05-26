@@ -11,7 +11,6 @@ import picocli.CommandLine;
 
 import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 import static dev.snowdrop.internal.controller.PackageController.runPackageController;
 
