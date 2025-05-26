@@ -1,6 +1,7 @@
 package dev.snowdrop.internal.controller;
 
 import dev.snowdrop.internal.crd.Package;
+import dev.snowdrop.internal.crd.PackageStatus;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.informers.ResourceEventHandler;
 import io.fabric8.kubernetes.client.informers.SharedIndexInformer;
@@ -11,22 +12,26 @@ import org.slf4j.LoggerFactory;
 public class PackageController {
     private final static Logger LOGGER = LoggerFactory.getLogger(PackageController.class);
 
-    public static void initPackageController(KubernetesClient client) {
+    public static void runPackageController(KubernetesClient client) {
         try {
             SharedInformerFactory sharedInformerFactory = client.informers();
-            SharedIndexInformer<Package> packageInformer = sharedInformerFactory.sharedIndexInformerFor(Package.class, 30 * 1000L);
+            SharedIndexInformer<Package> packageInformer = sharedInformerFactory.sharedIndexInformerFor(Package.class, 10 * 1000L);
             LOGGER.info("Informer factory initialized.");
 
             packageInformer.addEventHandler(
                 new ResourceEventHandler<Package>() {
                     @Override
                     public void onAdd(Package pkg) {
-                        LOGGER.info("{} package added", pkg.getMetadata().getName());
+                        PackageStatus status = new PackageStatus();
+                        status.setMessage("package successfully installed");
+                        pkg.setStatus(status);
+                        client.resource(pkg).updateStatus();
+                        LOGGER.info("{} package added and status updated", pkg.getMetadata().getName());
                     }
 
                     @Override
-                    public void onUpdate(Package pkg, Package pkg1) {
-                        LOGGER.info("{} package updated", pkg.getMetadata().getName());
+                    public void onUpdate(Package oldPkg, Package newPkg) {
+                        LOGGER.info("{} package updated", oldPkg.getMetadata().getName());
                     }
 
                     @Override
@@ -40,22 +45,6 @@ public class PackageController {
 
         } catch (Exception e) {
             LOGGER.error("Error initializing package controller", e);
-        }
-    }
-
-    public static void stopPackageController(KubernetesClient client) {
-        try {
-            SharedInformerFactory sharedInformerFactory = client.informers();
-            SharedIndexInformer<Package> packageInformer = sharedInformerFactory.getExistingSharedIndexInformer(Package.class);
-
-            if (packageInformer != null) {
-                packageInformer.stop();
-                sharedInformerFactory.stopAllRegisteredInformers();
-            } else {
-                LOGGER.warn("No shared informer found for: {}", Package.class.getSimpleName());
-            }
-        } catch (Exception e) {
-            LOGGER.error("Error stopping package controller", e);
         }
     }
 }

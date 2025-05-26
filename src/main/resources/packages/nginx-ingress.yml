@@ -1,7 +1,7 @@
 apiVersion: halkyon.io/v1alpha1
 kind: Package
 metadata:
-  name: my-helm-app
+  name: nginx-ingress
   namespace: default
 spec:
   tool: Helm

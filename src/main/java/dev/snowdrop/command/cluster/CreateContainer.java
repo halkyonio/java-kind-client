@@ -15,6 +15,7 @@ import dev.snowdrop.config.model.qute.StorageConfig;
 import dev.snowdrop.container.ImageUtils;
 import dev.snowdrop.kind.KindKubernetesConfiguration;
 import io.fabric8.kubernetes.api.model.Taint;
+import io.fabric8.kubernetes.api.model.apiextensions.v1.CustomResourceDefinitionList;
 import io.fabric8.kubernetes.client.Config;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.KubernetesClientBuilder;
@@ -25,12 +26,15 @@ import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
 import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
 import org.apache.commons.compress.archivers.tar.TarArchiveOutputStream;
 import org.apache.commons.compress.utils.IOUtils;
+import org.junit.jupiter.api.Assertions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testcontainers.images.builder.Transferable;
 import picocli.CommandLine;
 
 import java.io.*;
+import java.net.URL;
+import java.net.URLConnection;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.concurrent.Callable;
@@ -38,10 +42,6 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
 import static com.github.dockerjava.api.model.AccessMode.ro;
-import static dev.snowdrop.internal.controller.PackageController.initPackageController;
-import static dev.snowdrop.internal.resource.ingress.Utils.installIngress;
-import static dev.snowdrop.internal.resource.tekton.Utils.installTekton;
-import static dev.snowdrop.internal.resource.tekton.Utils.installTektonDashboard;
 import static dev.snowdrop.config.KubeConfigUtils.parseKubeConfig;
 import static dev.snowdrop.config.KubeConfigUtils.serializeKubeConfig;
 import static dev.snowdrop.container.ContainerUtils.getFreePortOnHost;
@@ -247,6 +247,26 @@ public class CreateContainer extends Container implements Callable<Integer> {
 
                 // Untaint the node
                 untaintNode(client);
+
+                // Install the CRD able to handle the installation of the (core) packages
+                URL packageCRDUrl = new URL("https://raw.githubusercontent.com/halkyonio/java-package-operator/refs/heads/main/resources/crds/packages.halkyon.io-v1alpha1.yml");
+                URLConnection urlConnection = packageCRDUrl.openConnection();
+                InputStream packageCRD = urlConnection.getInputStream();
+                var res = client.resource(packageCRD).create();
+                Assertions.assertNotNull(res);
+
+                CustomResourceDefinitionList crds = client.apiextensions().v1().customResourceDefinitions().list();
+                crds.getItems().forEach(crd -> {
+                    LOGGER.info("Name: {}", crd.getMetadata().getName());
+                });
+
+                LOGGER.info("Waiting for CRD to be established...");
+                client.apiextensions().v1().customResourceDefinitions().withName("packages.halkyon.io")
+                    .waitUntilCondition(c ->
+                        c != null &&
+                            c.getStatus() != null &&
+                            c.getStatus().getAcceptedNames() != null, 60, TimeUnit.SECONDS);
+                LOGGER.info("packages.halkyon.io CRD deployed successfully !");
 
                 // Provision the cluster with core components: ingress, etc
                 //installIngress(client, "v1.11.5");
