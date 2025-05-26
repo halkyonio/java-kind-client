@@ -1,11 +1,10 @@
 package dev.snowdrop.internal.controller;
 
-import dev.snowdrop.internal.crd.Package;
-import dev.snowdrop.internal.crd.PackageStatus;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.informers.ResourceEventHandler;
 import io.fabric8.kubernetes.client.informers.SharedIndexInformer;
 import io.fabric8.kubernetes.client.informers.SharedInformerFactory;
+import io.halkyon.pkg.crd.PackageStatus;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -15,13 +14,13 @@ public class PackageController {
     public static void runPackageController(KubernetesClient client) {
         try {
             SharedInformerFactory sharedInformerFactory = client.informers();
-            SharedIndexInformer<Package> packageInformer = sharedInformerFactory.sharedIndexInformerFor(Package.class, 10 * 1000L);
+            SharedIndexInformer<io.halkyon.pkg.crd.Package> packageInformer = sharedInformerFactory.sharedIndexInformerFor(io.halkyon.pkg.crd.Package.class, 10 * 1000L);
             LOGGER.info("Informer factory initialized.");
 
             packageInformer.addEventHandler(
-                new ResourceEventHandler<Package>() {
+                new ResourceEventHandler<io.halkyon.pkg.crd.Package>() {
                     @Override
-                    public void onAdd(Package pkg) {
+                    public void onAdd(io.halkyon.pkg.crd.Package pkg) {
                         PackageStatus status = new PackageStatus();
                         status.setMessage("package successfully installed");
                         pkg.setStatus(status);
@@ -30,12 +29,12 @@ public class PackageController {
                     }
 
                     @Override
-                    public void onUpdate(Package oldPkg, Package newPkg) {
+                    public void onUpdate(io.halkyon.pkg.crd.Package oldPkg, io.halkyon.pkg.crd.Package newPkg) {
                         LOGGER.info("{} package updated", oldPkg.getMetadata().getName());
                     }
 
                     @Override
-                    public void onDelete(Package pkg, boolean b) {
+                    public void onDelete(io.halkyon.pkg.crd.Package pkg, boolean b) {
                         LOGGER.info("{} package deleted", pkg.getMetadata().getName());
                     }
                 });
