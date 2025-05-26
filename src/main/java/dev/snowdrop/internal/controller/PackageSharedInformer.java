@@ -9,10 +9,10 @@ import io.halkyon.pkg.crd.PackageStatus;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class PackageController {
-    private final static Logger LOGGER = LoggerFactory.getLogger(PackageController.class);
+public class PackageSharedInformer {
+    private final static Logger LOGGER = LoggerFactory.getLogger(PackageSharedInformer.class);
 
-    public static void runPackageController(KubernetesClient client) {
+    public static void runInformer(KubernetesClient client) {
 
         new Thread(() -> {
             try {
@@ -25,10 +25,10 @@ public class PackageController {
                         @Override
                         public void onAdd(Package pkg) {
                             PackageStatus status = new PackageStatus();
-                            status.setMessage("package successfully installed");
+                            status.setMessage("package successfully deployed");
                             pkg.setStatus(status);
                             client.resource(pkg).updateStatus();
-                            LOGGER.info("{} package added and status updated", pkg.getMetadata().getName());
+                            LOGGER.info("status updated of the package name: {}", pkg.getMetadata().getName());
                         }
 
                         @Override

@@ -12,7 +12,7 @@ import picocli.CommandLine;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
 
-import static dev.snowdrop.internal.controller.PackageController.runPackageController;
+import static dev.snowdrop.internal.controller.PackageSharedInformer.runInformer;
 
 @CommandLine.Command(name = "delete", description = "Delete a package")
 public class DeletePackage implements Callable<Integer> {
@@ -57,7 +57,7 @@ public class DeletePackage implements Callable<Integer> {
             }, "app-shutdown-hook"));
 
             LOGGER.info("Launching the Package informer to delete packages...");
-            runPackageController(client);
+            runInformer(client);
 
             try {
                 latch.await(); // Wait for SIGTERM
