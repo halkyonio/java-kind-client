@@ -246,6 +246,10 @@ public class CreateContainer extends Container implements Callable<Integer> {
                 // Untaint the node
                 untaintNode(client);
 
+                // Wait till the pods of the cluster are ready/running
+                waitTillPodRunning(client,"kube-system",Map.of("k8s-app","kube-dns"));
+                waitTillPodRunning(client,"local-path-storage",Map.of("app","local-path-provisioner"));
+
                 // Install the CRD able to handle the installation of the (core) packages
                 var res = client.resource(loadCustomResource("https://raw.githubusercontent.com/halkyonio/java-package-operator/refs/heads/main/resources/crds/packages.halkyon.io-v1.yml")).create();
                 Assertions.assertNotNull(res);

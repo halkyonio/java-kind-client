@@ -9,6 +9,8 @@ import java.io.InputStream;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLConnection;
+import java.util.Arrays;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 import static io.halkyon.config.Deserialization.YAML_MAPPER;
@@ -45,6 +47,14 @@ public final class KubeConfigUtils {
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    public static void waitTillPodRunning(KubernetesClient client, String ns, Map<String, String> labels) {
+        client.pods().inNamespace(ns).withLabels(labels)
+            .waitUntilCondition(c ->
+                c != null &&
+                    c.getStatus() != null &&
+                    c.getStatus().getPhase().contains("Running"), 60, TimeUnit.SECONDS);
     }
 
     public static void waitTillCustomResourceReady(KubernetesClient client, String customResourceName) {
