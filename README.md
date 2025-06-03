@@ -1,6 +1,6 @@
 ## A Quarkus CLI to manage locally a kubernetes cluster
 
-The goal of this project is to manage using a Java CLI a Kubernetes cluster and to provision it with some packages: ingress, argocd, gitea, etc. 
+The goal of this project is to manage using a Java CLI a Kubernetes cluster and to provision it with some packageCRS: ingress, argocd, gitea, etc. 
 
 The Client proposes different commands such as: 
 - Create/delete/start/stop a kubernetes cluster,
