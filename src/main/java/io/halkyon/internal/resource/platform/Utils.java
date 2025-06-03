@@ -30,22 +30,23 @@ public class Utils {
     }
 
     public static void installPlatformController(KubernetesClient client, String version) {
-        List<HasMetadata> items = client.load(fetchPlatformResourcesFromURL(version)).items();
-        LOGGER.info("Deploying the Platform controller resources ...");
-        for (HasMetadata item : items) {
-            var res = client.resource(item).create();
-            Assertions.assertNotNull(res);
-        }
-
+        List<HasMetadata> items;
         // TODO: The RBAC should be merged with the controller resources
-        // Deploy the RBAC
+        // Create the namespace and RBAC
         try {
-            client.load(new URL("https://raw.githubusercontent.com/halkyonio/java-package-operator/refs/heads/main/resources/manifests/rbac-cluster-admin-sa-default.yml").openStream()).items();
+            items = client.load(new URL("https://raw.githubusercontent.com/halkyonio/java-package-operator/refs/heads/main/resources/manifests/rbac-cluster-admin-sa-default.yml").openStream()).items();
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
         for (HasMetadata item : items) {
             var res = client.resource(item).create();
+            Assertions.assertNotNull(res);
+        }
+
+        items = client.load(fetchPlatformResourcesFromURL(version)).items();
+        LOGGER.info("Deploying the Platform controller resources ...");
+        for (HasMetadata item : items) {
+            var res = client.resource(item).inNamespace(PLATFORM_CONTROLLER_NAMESPACE).create();
             Assertions.assertNotNull(res);
         }
 

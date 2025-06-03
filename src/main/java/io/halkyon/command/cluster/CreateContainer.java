@@ -250,7 +250,7 @@ public class CreateContainer extends Container implements Callable<Integer> {
                 var res = client.resource(loadCustomResource("https://raw.githubusercontent.com/halkyonio/java-package-operator/refs/heads/main/resources/crds/packages.halkyon.io-v1.yml")).create();
                 Assertions.assertNotNull(res);
 
-                client.resource(loadCustomResource("https://raw.githubusercontent.com/halkyonio/java-package-operator/refs/heads/main/resources/crds/platforms.halkyon.io-v1alpha1.yml")).create();
+                client.resource(loadCustomResource("https://raw.githubusercontent.com/halkyonio/java-package-operator/refs/heads/main/resources/crds/platforms.halkyon.io-v1.yml")).create();
                 Assertions.assertNotNull(res);
 
                 /*
