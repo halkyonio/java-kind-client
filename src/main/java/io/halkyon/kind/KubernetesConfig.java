@@ -7,7 +7,7 @@ public class KubernetesConfig {
     public static String KUBE_API_PORT = "6443";
 
     public static String getKindImageName(String kubeVersion) {
-      return String.format("kindest/node:v%s", kubeVersion);
+      return String.format("kindest/node:%s", kubeVersion.startsWith("v") ? kubeVersion : "v" + kubeVersion);
     }
 
     /*

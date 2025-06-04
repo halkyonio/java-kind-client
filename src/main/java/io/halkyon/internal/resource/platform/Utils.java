@@ -12,6 +12,7 @@ import java.util.List;
 import java.util.Map;
 
 import static io.halkyon.config.KubeConfigUtils.loadCustomResource;
+import static io.halkyon.config.KubeConfigUtils.waitTillCustomResourceReady;
 import static io.halkyon.config.KubernetesClientUtils.waitTillPodSelectedByLabelsIsReady;
 
 public class Utils {
@@ -53,6 +54,9 @@ public class Utils {
 
         client.resource(loadCustomResource("https://raw.githubusercontent.com/halkyonio/java-package-operator/refs/heads/main/resources/crds/platforms.halkyon.io-v1.yml")).create();
         Assertions.assertNotNull(res);
+
+        waitTillCustomResourceReady(client, "packages.halkyon.io");
+        waitTillCustomResourceReady(client, "platforms.halkyon.io");
 
         items = client.load(fetchPlatformResourcesFromURL(version)).items();
         LOGGER.info("Deploying the Platform controller resources ...");

@@ -10,16 +10,11 @@
 #        listenAddress: "127.0.0.1"
 #        protocol: TCP
 
-quarkus:
-  qute:
-    content-types:
-      yaml: application/yaml
-
 kind:
-  name: kind1
-  kubernetesVersion: v1.32.0
+  name: kind
+  kubernetesVersion: v1.29.4 #  See versions of the kind project: https://github.com/kubernetes-sigs/kind/releases/tag/v0.27.0
   labels: "ingress-ready=true"
-  providerId: podman
+  providerId: podman # podman or docker
   bindings:
   - containerPort: 443
     hostPort: 8443

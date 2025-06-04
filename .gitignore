@@ -4,3 +4,4 @@ target/
 .DS_Store
 /tmp/
 /kind-client.iml
+/resources/kind1.yml

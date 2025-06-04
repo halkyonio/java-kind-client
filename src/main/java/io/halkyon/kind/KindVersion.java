@@ -2,6 +2,10 @@ package io.halkyon.kind;
 
 public class KindVersion {
 
+    private final static int DEFAULT_KUBERNETES_MAJOR_VERSION = 1;
+    private final static int DEFAULT_KUBERNETES_MINOR_VERSION = 32;
+    private final static int DEFAULT_KUBERNETES_PATCH_VERSION = 2;
+
     public static String getKubernetesVersion(String version) {
 
         String[] parts = version.split("\\.");
@@ -18,6 +22,6 @@ public class KindVersion {
     }
 
     public static String defaultKubernetesVersion() {
-      return new KubernetesVersionDescriptor(1,29,14).getKubernetesVersion();
+      return new KubernetesVersionDescriptor(DEFAULT_KUBERNETES_MAJOR_VERSION,DEFAULT_KUBERNETES_MINOR_VERSION,DEFAULT_KUBERNETES_PATCH_VERSION).getKubernetesVersion();
     }
 }

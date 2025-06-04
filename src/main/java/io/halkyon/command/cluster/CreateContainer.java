@@ -7,6 +7,10 @@ import com.github.dockerjava.api.command.CreateContainerResponse;
 import com.github.dockerjava.api.command.InspectContainerResponse;
 import com.github.dockerjava.api.exception.*;
 import com.github.dockerjava.api.model.*;
+import io.fabric8.kubernetes.api.model.Taint;
+import io.fabric8.kubernetes.client.Config;
+import io.fabric8.kubernetes.client.KubernetesClient;
+import io.fabric8.kubernetes.client.KubernetesClientBuilder;
 import io.halkyon.Container;
 import io.halkyon.config.ClientConfig;
 import io.halkyon.config.model.KubeConfig;
@@ -14,10 +18,6 @@ import io.halkyon.config.model.qute.KubeAdmConfig;
 import io.halkyon.config.model.qute.StorageConfig;
 import io.halkyon.container.ImageUtils;
 import io.halkyon.kind.KindKubernetesConfiguration;
-import io.fabric8.kubernetes.api.model.Taint;
-import io.fabric8.kubernetes.client.Config;
-import io.fabric8.kubernetes.client.KubernetesClient;
-import io.fabric8.kubernetes.client.KubernetesClientBuilder;
 import io.quarkus.qute.Location;
 import io.quarkus.qute.Template;
 import jakarta.inject.Inject;
@@ -25,7 +25,6 @@ import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
 import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
 import org.apache.commons.compress.archivers.tar.TarArchiveOutputStream;
 import org.apache.commons.compress.utils.IOUtils;
-import org.junit.jupiter.api.Assertions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testcontainers.images.builder.Transferable;
@@ -53,7 +52,7 @@ import static java.util.Collections.emptyList;
 @CommandLine.Command(name = "create", description = "Create a new container")
 public class CreateContainer extends Container implements Callable<Integer> {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(CreateContainer.class);
+    private static final Logger LOG = LoggerFactory.getLogger(CreateContainer.class);
     private String volumeName = "kindcontainer-" + UUID.randomUUID();
     private static final Map<String, String> TMP_FILESYSTEMS = new HashMap<String, String>() {{
         put("/run", "rw");
@@ -78,6 +77,9 @@ public class CreateContainer extends Container implements Callable<Integer> {
     @CommandLine.Option(names = {"-k", "--kube-version"}, description = "The version of the kubernetes cluster to use")
     String kubeVersion;
 
+    @CommandLine.Option(names = {"-c", "--config-file"}, description = "The version of the kubernetes cluster to use")
+    File kubeConfigfile;
+
     @CommandLine.Option(names = {"-p", "--port"}, description = "Bind a container's port(s) to the host", arity = "1..*")
     List<String> ports;  // e.g., "8080:80", "443:443/tcp"
 
@@ -93,23 +95,26 @@ public class CreateContainer extends Container implements Callable<Integer> {
     @Override
     public Integer call() {
         // TODO: Improve this code to merge the user's arguments with the application.properties
-        LOGGER.info("Cluster name: " + cfg.name());
-        LOGGER.info("Labels: " + cfg.labels());
+        LOG.info("Cluster name: " + cfg.name());
+        LOG.info("Labels: " + cfg.labels());
         cfg.binding().forEach(b -> {
-            LOGGER.info("Binding between host => container: {}:{}", b.hostPort(), b.containerPort());
+            LOG.info("Binding between host => container: {}:{}", b.hostPort(), b.containerPort());
         });
 
         try {
-            /*
-               Use the default kubernetes version if no version has been specified as: 1.29.14, 1.30.10, 1.31.6, 1.32.2
-               See versions of the kind project: https://github.com/kubernetes-sigs/kind/releases/tag/v0.27.0
-             */
+            if (kubeConfigfile != null) {
+                if (!kubeConfigfile.exists() || !kubeConfigfile.isFile()) {
+                    // TODO to be reviewed to handle the 2 use cases: not found or not provided
+                    LOG.warn("User's config file not provided or not found: {}",kubeConfigfile.getAbsolutePath());
+                }
+                System.setProperty("quarkus.config.locations", "file:" + kubeConfigfile.getAbsolutePath());
+                LOG.debug("External config file: {}", kubeConfigfile.getAbsolutePath());
+            }
+
+            // Check if the user provided a kubernetes version (command line or YAML file), otherwise use the default
+            setKubernetesVersion();
 
             KindKubernetesConfiguration kkc = new KindKubernetesConfiguration();
-
-            if (kubeVersion == null) {
-                kubeVersion = defaultKubernetesVersion();
-            }
 
             // TODO: Add a method to validate of the kube version matches an existing kind image !
             kkc.setKubernetesVersion(kubeVersion);
@@ -156,7 +161,7 @@ public class CreateContainer extends Container implements Callable<Integer> {
                 cfg.binding().stream()
                     .map(cfb -> {
                         PortBinding binding = PortBinding.parse(String.format("%s:%s", cfb.hostPort(), cfb.containerPort()));
-                        LOGGER.info("Added binding: {}:{}", cfb.hostPort(), cfb.containerPort());
+                        LOG.info("Added binding: {}:{}", cfb.hostPort(), cfb.containerPort());
                         return binding;
                     })
                     .forEach(pbs::add);
@@ -187,16 +192,16 @@ public class CreateContainer extends Container implements Callable<Integer> {
             try {
                 containerResponse = ccc.exec();
                 String containerId = containerResponse.getId();
-                LOGGER.info("Container created with ID: {}", containerId);
+                LOG.info("Container created with ID: {}", containerId);
 
                 // Inspect the Container
                 containerInfo = dockerClient.inspectContainerCmd(containerId).exec();
 
                 // Start the container and examine its status and log
-                LOGGER.info("Starting the container: {}", containerId);
+                LOG.info("Starting the container: {}", containerId);
                 dockerClient.startContainerCmd(containerId)
                     .exec();
-                LOGGER.info("Container started: {}", containerId);
+                LOG.info("Container started: {}", containerId);
 
                 // Wait for the container to be running and the message to appear
                 waitForLogMessage(containerId, "multi-user.target", 60);
@@ -212,17 +217,17 @@ public class CreateContainer extends Container implements Callable<Integer> {
                 kubeAdmConfig.setProviderId(cfg.providerId());
 
                 // Create the kubeAdmConfig file and run kubeadm init
-                LOGGER.info("Preparing nodes \uD83D\uDCE6");
+                LOG.info("Preparing nodes \uD83D\uDCE6");
                 kubeadmInit(containerInfo, kubeAdmConfig);
-                LOGGER.info("Starting control-plane \uD83D\uDD79\uFE0F");
+                LOG.info("Starting control-plane \uD83D\uDD79\uFE0F");
 
                 // TODO: Do we have to cp /etc/kubernetes/admin.conf ~/.kube/config OR use KUBECONFIG env var or kubectl --kubeconfig=''
 
                 // Render from the template the CNI resources file and deploy it on the cluster
-                LOGGER.info("Installing CNI  \uD83D\uDD0C");
+                LOG.info("Installing CNI  \uD83D\uDD0C");
                 installCNI(kubeAdmConfig);
 
-                LOGGER.info("Installing StorageClass  \uD83D\uDCBE");
+                LOG.info("Installing StorageClass  \uD83D\uDCBE");
                 // Deploy the local storage resources on the cluster (based on rancher.io/local-path)
                 StorageConfig storageConfig = new StorageConfig();
                 storageConfig.setVolumeBindingMode("WaitForFirstConsumer"); // WaitForFirstConsumer, Immediate
@@ -233,9 +238,9 @@ public class CreateContainer extends Container implements Callable<Integer> {
 
                 // Add to the kubeConfig's user file the cluster definition to access the cluster
                 String kubeconfig = new String(getFileFromContainer(containerInfo.getId(), "/etc/kubernetes/admin.conf"), StandardCharsets.UTF_8);
-                LOGGER.debug("Kubeconfig file of the server: {}", kubeconfig);
+                LOG.debug("Kubeconfig file of the server: {}", kubeconfig);
                 kubeconfig = replaceServerInKubeconfig(getClusterIpAndPort(containerInfo), kubeconfig);
-                LOGGER.debug("Kubeconfig where IP and Port have been changed for the host: {}", kubeconfig);
+                LOG.debug("Kubeconfig where IP and Port have been changed for the host: {}", kubeconfig);
 
                 String pathToConfigFile = String.format("%s-%s", containerInfo.getName().replaceAll("/", ""), "kube.conf");
                 try (PrintWriter out = new PrintWriter(pathToConfigFile)) {
@@ -249,44 +254,41 @@ public class CreateContainer extends Container implements Callable<Integer> {
                 untaintNode(client);
 
                 // Wait till the pods of the cluster are ready/running
-                waitTillPodRunning(client,"kube-system",Map.of("component","kube-apiserver"));
-                waitTillPodRunning(client,"kube-system",Map.of("component","etcd"));
-                waitTillPodRunning(client,"kube-system",Map.of("k8s-app","kube-dns"));
-                waitTillPodRunning(client,"local-path-storage",Map.of("app","local-path-provisioner"));
-
-                waitTillCustomResourceReady(client, "packages.halkyon.io");
-                waitTillCustomResourceReady(client, "platforms.halkyon.io");
+                waitTillPodRunning(client, "kube-system", Map.of("component", "kube-apiserver"));
+                waitTillPodRunning(client, "kube-system", Map.of("component", "etcd"));
+                waitTillPodRunning(client, "kube-system", Map.of("k8s-app", "kube-dns"));
+                waitTillPodRunning(client, "local-path-storage", Map.of("app", "local-path-provisioner"));
 
                 installPlatformController(client, "latest");
 
-                LOGGER.info("\\e[0;34m[32m Your Quarkus Kind cluster is ready ! \uD83D\uDC4B\n\u001B[0m");
-                LOGGER.info("You can now use your cluster with:\n");
-                LOGGER.info("kubectl --kubeconfig={}", pathToConfigFile);
+                LOG.info("\\e[0;34m[32m Your Quarkus Kind cluster is ready ! \uD83D\uDC4B\n\u001B[0m");
+                LOG.info("You can now use your cluster with:\n");
+                LOG.info("kubectl --kubeconfig={}", pathToConfigFile);
 
                 return 0;
             } catch (DockerClientException e) {
-                LOGGER.warn("Timeout to get the kind container response ...");
+                LOG.warn("Timeout to get the kind container response ...");
                 return 0;
             } catch (NotModifiedException e) {
-                LOGGER.warn("Container is already running {}.", containerInfo.getId());
+                LOG.warn("Container is already running {}.", containerInfo.getId());
                 return 1;
             } catch (ConflictException e) {
-                LOGGER.error("The container is already in use by a container !");
+                LOG.error("The container is already in use by a container !");
                 return 1;
             } catch (NotFoundException e) {
-                LOGGER.error("Container not found: " + containerInfo.getId());
+                LOG.error("Container not found: " + containerInfo.getId());
                 return 1;
             } catch (InternalServerErrorException e) {
                 if (e.getMessage().startsWith("Status 500: {\"cause\":\"that name is already in use\"")) {
-                    LOGGER.error("Container with the same name already exist: {}", containerName);
+                    LOG.error("Container with the same name already exist: {}", containerName);
                 } else {
                     var msg = e.getMessage();
-                    LOGGER.error(e.getMessage());
+                    LOG.error(e.getMessage());
                 }
                 return 1;
             }
         } catch (Exception e) {
-            LOGGER.error("Error starting the container {}: {}", containerInfo.getId(), e.getMessage(), e);
+            LOG.error("Error starting the container {}: {}", containerInfo.getId(), e.getMessage(), e);
             return 1;
         } finally {
             closeDockerClient();
@@ -309,7 +311,7 @@ public class CreateContainer extends Container implements Callable<Integer> {
                             node.getMetadata().getName(),
                             removeTaint
                         };
-                        LOGGER.debug("Execute command: {}", Arrays.stream(cmd).toList());
+                        LOG.debug("Execute command: {}", Arrays.stream(cmd).toList());
                         execInContainer(cmd);
                     } catch (final IOException | InterruptedException e) {
                         throw new RuntimeException("Failed to untaint node", e);
@@ -340,18 +342,18 @@ public class CreateContainer extends Container implements Callable<Integer> {
 
         // Render the template => KubeAdminConfig YAML and write it to the kind container
         try {
-            LOGGER.info("Render the KubeAdminConfig template ...");
+            LOG.info("Render the KubeAdminConfig template ...");
             result = kubeadm.data("cfg", kubeAdmConfig).render();
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
 
-        LOGGER.debug("KubeAdmConfig generated: {}", result);
+        LOG.debug("KubeAdmConfig generated: {}", result);
 
-        LOGGER.info("Writing container file: {}", kubeAdmConfigPath);
+        LOG.info("Writing container file: {}", kubeAdmConfigPath);
         copyFileToContainer(containerInfo, Transferable.of(result.getBytes(UTF_8)), kubeAdmConfigPath);
 
-        LOGGER.info("Execute command: {}", "kubeadm init ...");
+        LOG.info("Execute command: {}", "kubeadm init ...");
         try {
             execInContainer(
                 "kubeadm", "init",
@@ -364,14 +366,14 @@ public class CreateContainer extends Container implements Callable<Integer> {
                 // increase verbosity for debugging
                 "--v=6");
 
-            LOGGER.info("Copy the kube-admin.conf file to /kind/kubeadm.conf. This is needed to allow to restart the cluster / container");
-            execInContainer("cp",kubeAdmConfigPath, "/kind/kubeadm.conf");
+            LOG.info("Copy the kube-admin.conf file to /kind/kubeadm.conf. This is needed to allow to restart the cluster / container");
+            execInContainer("cp", kubeAdmConfigPath, "/kind/kubeadm.conf");
 
         } catch (final RuntimeException | IOException | InterruptedException e) {
             try {
-                LOGGER.error("{}", execInContainer("journalctl").getStdout(), "JOURNAL: ");
+                LOG.error("{}", execInContainer("journalctl").getStdout(), "JOURNAL: ");
             } catch (final IOException | InterruptedException ex) {
-                LOGGER.error("Could not retrieve journal.", ex);
+                LOG.error("Could not retrieve journal.", ex);
             }
             throw e;
         }
@@ -382,14 +384,14 @@ public class CreateContainer extends Container implements Callable<Integer> {
         String CNI_RESOURCES_PATH = CONTAINER_WORKDIR + "manifests/cni.yaml";
         // Render the template => CNI YAML and write it to the kind container
         try {
-            LOGGER.info("Render the CNI template ...");
+            LOG.info("Render the CNI template ...");
             result = cni.data("cfg", kubeAdmConfig).render();
-            LOGGER.debug("CNI generated: {}", result);
+            LOG.debug("CNI generated: {}", result);
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
 
-        LOGGER.info("Writing CNI generated resources file: {}", CNI_RESOURCES_PATH);
+        LOG.info("Writing CNI generated resources file: {}", CNI_RESOURCES_PATH);
         copyFileToContainer(containerInfo, Transferable.of(result.getBytes(UTF_8)), CNI_RESOURCES_PATH);
 
         String[] cmd = {
@@ -401,10 +403,10 @@ public class CreateContainer extends Container implements Callable<Integer> {
         };
 
         try {
-            LOGGER.debug("Execute command: {}", Arrays.stream(cmd).toList());
+            LOG.debug("Execute command: {}", Arrays.stream(cmd).toList());
             execInContainer(cmd);
         } catch (final RuntimeException | IOException | InterruptedException e) {
-            LOGGER.error("Fail to execute the kubectl cmd", e);
+            LOG.error("Fail to execute the kubectl cmd", e);
         }
     }
 
@@ -413,14 +415,14 @@ public class CreateContainer extends Container implements Callable<Integer> {
         String STORAGE_RESOURCES_PATH = CONTAINER_WORKDIR + "manifests/storage.yaml";
         // Render the template => Storage YAML and write it to the kind container
         try {
-            LOGGER.info("Render the Storage template ...");
+            LOG.info("Render the Storage template ...");
             result = storage.data("cfg", storageconfig).render();
-            LOGGER.debug("Storage generated: {}", result);
+            LOG.debug("Storage generated: {}", result);
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
 
-        LOGGER.info("Writing Storage generated resources file: {}", STORAGE_RESOURCES_PATH);
+        LOG.info("Writing Storage generated resources file: {}", STORAGE_RESOURCES_PATH);
         copyFileToContainer(containerInfo, Transferable.of(result.getBytes(UTF_8)), STORAGE_RESOURCES_PATH);
 
         String[] cmd = {
@@ -432,10 +434,10 @@ public class CreateContainer extends Container implements Callable<Integer> {
         };
 
         try {
-            LOGGER.info("Execute command: {}", Arrays.stream(cmd).toList());
+            LOG.info("Execute command: {}", Arrays.stream(cmd).toList());
             execInContainer(cmd);
         } catch (final RuntimeException | IOException | InterruptedException e) {
-            LOGGER.error("Fail to execute the kubectl cmd", e);
+            LOG.error("Fail to execute the kubectl cmd", e);
         }
     }
 
@@ -451,7 +453,7 @@ public class CreateContainer extends Container implements Callable<Integer> {
             public void onNext(Frame frame) {
                 String logEntry = new String(frame.getPayload());
                 if (logEntry.contains(expectedMessage)) {
-                    LOGGER.info("Found expected message in logs: {}", logEntry);
+                    LOG.info("Found expected message in logs: {}", logEntry);
                     latch.countDown();
                 }
             }
@@ -550,8 +552,13 @@ public class CreateContainer extends Container implements Callable<Integer> {
 
     public static String getClusterIpAndPort(InspectContainerResponse containerInfo) {
         Map<ExposedPort, Ports.Binding[]> ports = containerInfo.getHostConfig().getPortBindings().getBindings();
-        Ports.Binding[] bindings = ports.get(new ExposedPort(6443,InternetProtocol.TCP));
+        Ports.Binding[] bindings = ports.get(new ExposedPort(6443, InternetProtocol.TCP));
         return format("https://%s:%s", "127.0.0.1", bindings[0].getHostPortSpec());
     }
 
+    public void setKubernetesVersion() {
+        this.kubeVersion = Optional.ofNullable(this.kubeVersion)
+            .or(() -> cfg.kubernetesVersion())
+            .orElse(defaultKubernetesVersion());
+    }
 }
