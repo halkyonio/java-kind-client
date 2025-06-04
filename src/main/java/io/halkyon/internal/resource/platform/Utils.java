@@ -11,6 +11,7 @@ import java.net.URL;
 import java.util.List;
 import java.util.Map;
 
+import static io.halkyon.config.KubeConfigUtils.loadCustomResource;
 import static io.halkyon.config.KubernetesClientUtils.waitTillPodSelectedByLabelsIsReady;
 
 public class Utils {
@@ -31,6 +32,8 @@ public class Utils {
 
     public static void installPlatformController(KubernetesClient client, String version) {
         List<HasMetadata> items;
+        HasMetadata res;
+
         // TODO: The RBAC should be merged with the controller resources
         // Create the namespace and RBAC
         try {
@@ -38,15 +41,23 @@ public class Utils {
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
+        LOGGER.info("Deploying the Platform resources: rbac, namespace, etc ...");
         for (HasMetadata item : items) {
-            var res = client.resource(item).create();
+            res = client.resource(item).create();
             Assertions.assertNotNull(res);
         }
+
+        // Install the CRD
+        res = client.resource(loadCustomResource("https://raw.githubusercontent.com/halkyonio/java-package-operator/refs/heads/main/resources/crds/packages.halkyon.io-v1.yml")).create();
+        Assertions.assertNotNull(res);
+
+        client.resource(loadCustomResource("https://raw.githubusercontent.com/halkyonio/java-package-operator/refs/heads/main/resources/crds/platforms.halkyon.io-v1.yml")).create();
+        Assertions.assertNotNull(res);
 
         items = client.load(fetchPlatformResourcesFromURL(version)).items();
         LOGGER.info("Deploying the Platform controller resources ...");
         for (HasMetadata item : items) {
-            var res = client.resource(item).inNamespace(PLATFORM_CONTROLLER_NAMESPACE).create();
+            res = client.resource(item).inNamespace(PLATFORM_CONTROLLER_NAMESPACE).create();
             Assertions.assertNotNull(res);
         }
 

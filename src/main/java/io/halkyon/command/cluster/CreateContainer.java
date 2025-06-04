@@ -41,7 +41,6 @@ import java.util.concurrent.TimeUnit;
 import static com.github.dockerjava.api.model.AccessMode.ro;
 import static io.halkyon.config.KubeConfigUtils.*;
 import static io.halkyon.container.ContainerUtils.getFreePortOnHost;
-import static io.halkyon.internal.resource.ingress.Utils.installIngress;
 import static io.halkyon.internal.resource.platform.Utils.installPlatformController;
 import static io.halkyon.kind.KindVersion.defaultKubernetesVersion;
 import static io.halkyon.kind.KubernetesConfig.*;
@@ -213,13 +212,17 @@ public class CreateContainer extends Container implements Callable<Integer> {
                 kubeAdmConfig.setProviderId(cfg.providerId());
 
                 // Create the kubeAdmConfig file and run kubeadm init
+                LOGGER.info("Preparing nodes \uD83D\uDCE6");
                 kubeadmInit(containerInfo, kubeAdmConfig);
+                LOGGER.info("Starting control-plane \uD83D\uDD79\uFE0F");
 
                 // TODO: Do we have to cp /etc/kubernetes/admin.conf ~/.kube/config OR use KUBECONFIG env var or kubectl --kubeconfig=''
 
                 // Render from the template the CNI resources file and deploy it on the cluster
+                LOGGER.info("Installing CNI  \uD83D\uDD0C");
                 installCNI(kubeAdmConfig);
 
+                LOGGER.info("Installing StorageClass  \uD83D\uDCBE");
                 // Deploy the local storage resources on the cluster (based on rancher.io/local-path)
                 StorageConfig storageConfig = new StorageConfig();
                 storageConfig.setVolumeBindingMode("WaitForFirstConsumer"); // WaitForFirstConsumer, Immediate
@@ -235,7 +238,6 @@ public class CreateContainer extends Container implements Callable<Integer> {
                 LOGGER.debug("Kubeconfig where IP and Port have been changed for the host: {}", kubeconfig);
 
                 String pathToConfigFile = String.format("%s-%s", containerInfo.getName().replaceAll("/", ""), "kube.conf");
-                LOGGER.info("Your kubernetes cluster config file is available at: {}", pathToConfigFile);
                 try (PrintWriter out = new PrintWriter(pathToConfigFile)) {
                     out.println(kubeconfig);
                 }
@@ -247,26 +249,19 @@ public class CreateContainer extends Container implements Callable<Integer> {
                 untaintNode(client);
 
                 // Wait till the pods of the cluster are ready/running
+                waitTillPodRunning(client,"kube-system",Map.of("component","kube-apiserver"));
+                waitTillPodRunning(client,"kube-system",Map.of("component","etcd"));
                 waitTillPodRunning(client,"kube-system",Map.of("k8s-app","kube-dns"));
                 waitTillPodRunning(client,"local-path-storage",Map.of("app","local-path-provisioner"));
 
-                // Install the CRD able to handle the installation of the (core) packages
-                var res = client.resource(loadCustomResource("https://raw.githubusercontent.com/halkyonio/java-package-operator/refs/heads/main/resources/crds/packages.halkyon.io-v1.yml")).create();
-                Assertions.assertNotNull(res);
-
-                client.resource(loadCustomResource("https://raw.githubusercontent.com/halkyonio/java-package-operator/refs/heads/main/resources/crds/platforms.halkyon.io-v1.yml")).create();
-                Assertions.assertNotNull(res);
-
-                /*
-                CustomResourceDefinitionList crds = client.apiextensions().v1().customResourceDefinitions().list();
-                crds.getItems().forEach(crd -> {
-                    LOGGER.info("Custom resource installed: {}", crd.getMetadata().getName());
-                });
-                */
                 waitTillCustomResourceReady(client, "packages.halkyon.io");
                 waitTillCustomResourceReady(client, "platforms.halkyon.io");
 
                 installPlatformController(client, "latest");
+
+                LOGGER.info("\\e[0;34m[32m Your Quarkus Kind cluster is ready ! \uD83D\uDC4B\n\u001B[0m");
+                LOGGER.info("You can now use your cluster with:\n");
+                LOGGER.info("kubectl --kubeconfig={}", pathToConfigFile);
 
                 return 0;
             } catch (DockerClientException e) {

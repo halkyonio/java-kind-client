@@ -1,8 +1,11 @@
 package io.halkyon.config;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import io.halkyon.command.cluster.CreateContainer;
 import io.halkyon.config.model.KubeConfig;
 import io.fabric8.kubernetes.client.KubernetesClient;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -16,6 +19,7 @@ import java.util.concurrent.TimeUnit;
 import static io.halkyon.config.Deserialization.YAML_MAPPER;
 
 public final class KubeConfigUtils {
+    private static final Logger LOG = LoggerFactory.getLogger(KubeConfigUtils.class);
 
     public KubeConfigUtils() {
         throw new UnsupportedOperationException("Do not instantiate!");
@@ -55,6 +59,7 @@ public final class KubeConfigUtils {
                 c != null &&
                     c.getStatus() != null &&
                     c.getStatus().getPhase().contains("Running"), 60, TimeUnit.SECONDS);
+        LOG.info(" ✓ Pod: {} is running in namespace: {}.", labels, ns);
     }
 
     public static void waitTillCustomResourceReady(KubernetesClient client, String customResourceName) {
@@ -63,5 +68,6 @@ public final class KubeConfigUtils {
                 c != null &&
                     c.getStatus() != null &&
                     c.getStatus().getAcceptedNames() != null, 60, TimeUnit.SECONDS);
+        LOG.info(" ✓ Custom resource: {} is ready.", customResourceName);
     }
 }
