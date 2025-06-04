@@ -261,7 +261,7 @@ public class CreateContainer extends Container implements Callable<Integer> {
 
                 installPlatformController(client, "latest");
 
-                LOG.info("\\e[0;34m[32m Your Quarkus Kind cluster is ready ! \uD83D\uDC4B\n\u001B[0m");
+                LOG.info("Your Quarkus Kind cluster is ready ! \uD83D\uDC4B\n");
                 LOG.info("You can now use your cluster with:\n");
                 LOG.info("kubectl --kubeconfig={}", pathToConfigFile);
 
