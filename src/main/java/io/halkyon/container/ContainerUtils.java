@@ -6,7 +6,7 @@ import com.github.dockerjava.api.model.Container;
 import com.github.dockerjava.api.model.ContainerNetwork;
 import com.github.dockerjava.core.DefaultDockerClientConfig;
 import com.github.dockerjava.core.DockerClientImpl;
-import com.github.dockerjava.httpclient5.ApacheDockerHttpClient;
+import com.github.dockerjava.okhttp.OkDockerHttpClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -31,7 +31,7 @@ public class ContainerUtils {
             try {
                 var config = DefaultDockerClientConfig.createDefaultConfigBuilder()
                     .build();
-                var httpClient = new ApacheDockerHttpClient.Builder()
+                var httpClient = new OkDockerHttpClient.Builder()
                     .dockerHost(config.getDockerHost())
                     .build();
                 dc = DockerClientImpl.getInstance(config, httpClient);
