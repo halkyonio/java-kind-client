@@ -44,8 +44,7 @@ jobs:
       run: |
         mvn -B clean install -Dnative \
            -Dquarkus.native.container-build=true \
-           -Dnative.surefire.skip \
-           -Dquarkus.native.additional-build-args=--initialize-at-run-time=com.github.dockerjava.transport.NamedPipeSocket$Kernel32
+           -Dnative.surefire.skip
         ls -la target
         ls -la target/distributions
 
