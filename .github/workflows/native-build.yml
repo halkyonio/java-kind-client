@@ -27,8 +27,18 @@ jobs:
         github-token: ${{ secrets.GITHUB_TOKEN }}
         native-image-job-reports: 'true'
 
+    - name: Checkout the Platform Operator Maven project
+      uses: actions/checkout@v2
+      with:
+        repository: halkyonio/java-package-operator
+        path: java-package-operator
+
+    - name: Package the Platform Operator Maven project
+      working-directory: java-package-operator
+      run: mvn -B install -DskipTests
+
     - name: 'Build project'
-      run: mvn install -DskipTests
+      run: mvn -B install -DskipTests
 
     - name: 'Build Native Image'
       run: |
