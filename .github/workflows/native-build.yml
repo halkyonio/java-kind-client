@@ -1,4 +1,4 @@
-name: Java CI to build the executable
+name: CI to build the executable
 
 on:
   workflow_dispatch:
