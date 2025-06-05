@@ -56,7 +56,7 @@
         <!-- CRD classes -->
         <dependency>
             <groupId>io.halkyon</groupId>
-            <artifactId>package-operator</artifactId>
+            <artifactId>platform-operator</artifactId>
             <version>0.1.0-SNAPSHOT</version>
             <scope>compile</scope>
         </dependency>
