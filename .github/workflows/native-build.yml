@@ -38,11 +38,11 @@ jobs:
       run: mvn -B install -DskipTests
 
     - name: 'Build project'
-      run: mvn -B install -DskipTests -Dno-format
+      run: mvn -B clean install -DskipTests -Dno-format
 
     - name: 'Build Native Image'
       run: |
-        mvn -B install -Dnative -Dquarkus.native.container-build -Dnative.surefire.skip
+        mvn -B clean install -Dnative -Dquarkus.native.container-build -Dnative.surefire.skip
         ls -la target
         ls -la target/distributions
 
