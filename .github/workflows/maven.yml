@@ -38,10 +38,5 @@ jobs:
       working-directory: java-package-operator
       run: mvn -B install
 
-    - name: Maven build
+    - name: Build the Java Kind client project and test it
       run: mvn -B package
-
-    - name: Upload a Build Artifact
-      uses: actions/upload-artifact@v4.6.2
-      with:
-        path: ''
