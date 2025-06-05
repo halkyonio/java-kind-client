@@ -4,7 +4,7 @@ The goal of this project is to manage using a Java CLI a Kubernetes cluster and 
 
 The Client proposes different commands such as: 
 - Create/delete/start/stop a kubernetes cluster,
-- Install/uninstall a package
+- Install/uninstall a package (WIP)
 
 **Note**: The cluster is installed within a container created by a docker engine (podman or docker) using the [kind container image](https://hub.docker.com/r/kindest/node/tags).
 
