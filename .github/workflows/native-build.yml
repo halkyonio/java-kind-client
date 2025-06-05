@@ -42,7 +42,10 @@ jobs:
 
     - name: 'Build Native Image'
       run: |
-        mvn -B clean install -Dnative -Dquarkus.native.container-build=true -Dnative.surefire.skip
+        mvn -B clean install -Dnative \
+           -Dquarkus.native.container-build=true \
+           -Dnative.surefire.skip \
+           -Dquarkus.native.additional-build-args=--initialize-at-run-time=com.github.dockerjava.transport.NamedPipeSocket$Kernel32
         ls -la target
         ls -la target/distributions
 
