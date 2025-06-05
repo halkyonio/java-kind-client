@@ -42,7 +42,7 @@ jobs:
 
     - name: 'Build Native Image'
       run: |
-        mvn -B -Dnative -Dquarkus.native.container-build -Dnative.surefire.skip
+        mvn -B install -Dnative -Dquarkus.native.container-build -Dnative.surefire.skip
         ls -la target
         ls -la target/distributions
 
