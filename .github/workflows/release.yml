@@ -41,7 +41,7 @@ jobs:
           # if curl --output /dev/null --silent --head --fail "https://repo1.maven.org/maven2/net/laprun/sustainability/java-kind-client/${{steps.metadata.outputs.current-version}}"; then
           #  echo "already_released=true" >> $GITHUB_OUTPUT
           #fi
-          echo "already_released=true" >> $GITHUB_OUTPUT
+          echo "already_released=false" >> $GITHUB_OUTPUT
 
       - name: Configure Git author
         if: steps.released.outputs.already_released != 'true'
@@ -71,11 +71,12 @@ jobs:
       #    MAVEN_PASSWORD: "${{ secrets.CENTRAL_PASSWORD }}"
       #    MAVEN_GPG_PASSPHRASE: "${{ secrets.GPG_PASSPHRASE }}"
 
-      - name: Push changes to ${{github.base_ref}} branch
-        if: steps.released.outputs.already_released != 'true'
-        run: |
-          git push
-          git push origin ${{steps.metadata.outputs.current-version}}
+      # TODO
+      # - name: Push changes to ${{github.base_ref}} branch
+      #  if: steps.released.outputs.already_released != 'true'
+      #  run: |
+      #    git push
+      #    git push origin ${{steps.metadata.outputs.current-version}}
 
   # Build native executable per runner
   package:
