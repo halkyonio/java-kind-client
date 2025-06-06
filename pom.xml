@@ -24,6 +24,7 @@
         <maven-assembly-plugin.version>3.7.1</maven-assembly-plugin.version>
         <jreleaser.version>1.18.0</jreleaser.version>
         <surefire-plugin.version>3.5.2</surefire-plugin.version>
+        <executable-suffix/>
 
         <skipITs>true</skipITs>
     </properties>
@@ -114,10 +115,18 @@
             <artifactId>quarkus-junit5</artifactId>
             <scope>test</scope>
         </dependency>
-
     </dependencies>
 
     <build>
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <artifactId>maven-assembly-plugin</artifactId>
+                    <version>${maven-assembly-plugin.version}</version>
+                </plugin>
+            </plugins>
+        </pluginManagement>
+
         <plugins>
             <plugin>
                 <groupId>${quarkus.platform.group-id}</groupId>
@@ -135,15 +144,6 @@
                     </execution>
                 </executions>
             </plugin>
-            <!-- Duplicate plugin
-            <plugin>
-                <artifactId>maven-compiler-plugin</artifactId>
-                <version>${compiler-plugin.version}</version>
-                <configuration>
-                    <parameters>true</parameters>
-                </configuration>
-            </plugin>
-            -->
             <plugin>
                 <artifactId>maven-surefire-plugin</artifactId>
                 <version>${surefire-plugin.version}</version>
@@ -210,7 +210,6 @@
                 <plugins>
                     <plugin>
                         <artifactId>maven-assembly-plugin</artifactId>
-                        <version>${maven-assembly-plugin.version}</version>
                         <executions>
                             <execution>
                                 <id>make-distribution</id>
