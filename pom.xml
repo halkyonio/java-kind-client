@@ -3,7 +3,23 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>io.halkyon</groupId>
     <artifactId>java-kind-client</artifactId>
+    <name>java-kind-client</name>
+    <description>Quarkus Client able to create a kubernetes kind cluster and more</description>
     <version>0.1.0-SNAPSHOT</version>
+    <url>https://github.com/halkyonio/java-kind-client</url>
+    <developers>
+        <developer>
+            <id>cmoullia</id>
+            <name>Charles Moulliard</name>
+        </developer>
+    </developers>
+    <licenses>
+        <license>
+            <name>Apache-2.0</name>
+            <url>http://www.apache.org/licenses/LICENSE-2.0.txt</url>
+            <distribution>repo</distribution>
+        </license>
+    </licenses>
 
     <properties>
         <compiler-plugin.version>3.14.0</compiler-plugin.version>
@@ -254,6 +270,9 @@
                         <version>${jreleaser.version}</version>
                         <configuration>
                             <jreleaser>
+                                <project>
+                                    <copyright>2024 Red Hat</copyright>
+                                </project>
                                 <release>
                                     <github>
                                         <changelog>
