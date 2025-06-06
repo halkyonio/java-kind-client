@@ -71,7 +71,7 @@ jobs:
           wget "${DOWNLOAD_URL}" -O "${OUTPUT_FILENAME}"
 
           mkdir artifacts
-          mv "${OUTPUT_FILENAME}" artifacts
+          unzip -d artifacts/ "${OUTPUT_FILENAME}"
 
           echo "Downloaded file details:"
           ls -lh artifacts
