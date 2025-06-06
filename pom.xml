@@ -25,6 +25,8 @@
         <jreleaser.version>1.18.0</jreleaser.version>
         <surefire-plugin.version>3.5.2</surefire-plugin.version>
         <os-maven-plugin.version>1.7.1</os-maven-plugin.version>
+
+        <distribution.directory>${project.build.directory}/distributions</distribution.directory>
         <executable-suffix/>
 
         <skipITs>true</skipITs>
