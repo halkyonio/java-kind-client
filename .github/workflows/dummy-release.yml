@@ -56,12 +56,25 @@ jobs:
 
       # checkout will clobber downloaded artifacts
       # we have to download them again
-      - name: 'Download all build artifacts'
-        uses: actions/download-artifact@v4
-        with:
-          path: artifacts
-          pattern: jkind-*
-          merge-multiple: true
+      #- name: 'Download all build artifacts'
+      #  uses: actions/download-artifact@v4
+      #  with:
+      #    path: artifacts
+      #    pattern: jkind-*
+      #    merge-multiple: true
+      - name: Download the artifact
+        run: |
+          DOWNLOAD_URL="https://github.com/halkyonio/java-kind-client/actions/runs/15488191503/job/43607562777"
+          OUTPUT_FILENAME="jkind-macOS-ARM64.zip"
+
+          echo "Downloading ${DOWNLOAD_URL} to ${OUTPUT_FILENAME}"
+          wget "${DOWNLOAD_URL}" -O "${OUTPUT_FILENAME}"
+
+          mkdir artifacts
+          mv "${OUTPUT_FILENAME}" artifacts
+
+          echo "Downloaded file details:"
+          ls -lh artifacts
 
       - name: 'Set up Java'
         uses: actions/setup-java@v4
