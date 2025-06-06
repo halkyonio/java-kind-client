@@ -302,7 +302,6 @@
                                                 </transform>
                                                 <platform>linux-x86_64</platform>
                                             </artifact>
-                                            <!--
                                             <artifact>
                                                 <path>
                                                     {{artifactsDir}}/{{distributionName}}-{{projectVersion}}-osx-x86_64.tar.gz
@@ -312,7 +311,6 @@
                                                 </transform>
                                                 <platform>osx-x86_64</platform>
                                             </artifact>
-                                            -->
                                             <artifact>
                                                 <path>
                                                     {{artifactsDir}}/{{distributionName}}-{{projectVersion}}-osx-aarch_64.tar.gz
