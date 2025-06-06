@@ -43,56 +43,10 @@ jobs:
           #fi
           echo "already_released=false" >> $GITHUB_OUTPUT
 
-      - name: Configure Git author
-        if: steps.released.outputs.already_released != 'true'
-        run: |
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
-
-      #- uses: actions/setup-java@v4
-      #  if: steps.released.outputs.already_released != 'true'
-      #  with:
-      #    distribution: 'temurin'
-      #    java-version: '21'
-      #    cache: 'maven'
-      #    server-id: central
-      #    server-username: MAVEN_USERNAME
-      #    server-password: MAVEN_PASSWORD
-      #    gpg-private-key: ${{ secrets.GPG_PRIVATE_KEY }}
-      #    gpg-passphrase: MAVEN_GPG_PASSPHRASE
-
-      #- name: Maven release ${{steps.metadata.outputs.current-version}}
-      #  if: steps.released.outputs.already_released != 'true'
-      #  run: |
-      #    mvn -B release:prepare -Prelease -Darguments="-DskipTests" -DreleaseVersion=${{steps.metadata.outputs.current-version}} -DdevelopmentVersion=${{steps.metadata.outputs.next-version}}
-      #    mvn -B release:perform -Darguments="-DperformRelease -DskipTests" -DperformRelease -Prelease
-      #  env:
-      #    MAVEN_USERNAME: "${{ secrets.CENTRAL_USER }}"
-      #    MAVEN_PASSWORD: "${{ secrets.CENTRAL_PASSWORD }}"
-      #    MAVEN_GPG_PASSPHRASE: "${{ secrets.GPG_PASSPHRASE }}"
-
-      # TODO
-      # - name: Push changes to ${{github.base_ref}} branch
-      #  if: steps.released.outputs.already_released != 'true'
-      #  run: |
-      #    git push
-      #    git push origin ${{steps.metadata.outputs.current-version}}
-
-  # Build native executable per runner
-  package:
-    if: needs.maven-release.outputs.already_released != 'true'
-    needs: [maven-release]
-    strategy:
-      matrix:
-        os: [ macOS-latest ] # ubuntu-latest, macos-13
-    uses: ./.github/workflows/native-build.yml
-    with:
-      platform: ${{ matrix.os }}
-
   # Collect all executables and release
   release:
     if: needs.maven-release.outputs.already_released != 'true'
-    needs: [ maven-release, package ]
+    needs: [ maven-release ]
     runs-on: ubuntu-latest
     steps:
       - name: 'Check out repository'
