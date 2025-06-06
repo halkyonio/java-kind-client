@@ -1,0 +1,4 @@
+name: java-kind-client
+release:
+  current-version: 0.0.9
+  next-version: 0.1.0-SNAPSHOT
