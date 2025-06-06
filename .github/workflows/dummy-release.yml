@@ -68,7 +68,10 @@ jobs:
           OUTPUT_FILENAME="jkind-macOS-ARM64.zip"
 
           echo "Downloading ${DOWNLOAD_URL} to ${OUTPUT_FILENAME}"
-          wget "${DOWNLOAD_URL}" -O "${OUTPUT_FILENAME}"
+          curl -L "${DOWNLOAD_URL}" -o "${OUTPUT_FILENAME}"
+
+          echo "Downloaded file details:"
+          ls -lh "${OUTPUT_FILENAME}"
 
           mkdir artifacts
           unzip -d artifacts/ "${OUTPUT_FILENAME}"
