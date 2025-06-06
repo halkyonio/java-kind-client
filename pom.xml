@@ -1,4 +1,5 @@
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
     <groupId>io.halkyon</groupId>
     <artifactId>java-kind-client</artifactId>
@@ -17,11 +18,14 @@
 
         <docker-java.version>3.4.1</docker-java.version>
         <slf4j.version>2.0.6</slf4j.version>
+
+        <!-- Plugins -->
         <fabric8-plugin.version>7.3.1</fabric8-plugin.version>
+        <maven-assembly-plugin.version>3.7.1</maven-assembly-plugin.version>
         <jreleaser.version>1.18.0</jreleaser.version>
+        <surefire-plugin.version>3.5.2</surefire-plugin.version>
 
         <skipITs>true</skipITs>
-        <surefire-plugin.version>3.5.2</surefire-plugin.version>
     </properties>
 
     <dependencyManagement>
@@ -163,7 +167,8 @@
                 </executions>
                 <configuration>
                     <systemPropertyVariables>
-                        <native.image.path>${project.build.directory}/${project.build.finalName}-runner</native.image.path>
+                        <native.image.path>${project.build.directory}/${project.build.finalName}-runner
+                        </native.image.path>
                         <java.util.logging.manager>org.jboss.logmanager.LogManager</java.util.logging.manager>
                         <maven.home>${maven.home}</maven.home>
                     </systemPropertyVariables>
@@ -224,6 +229,72 @@
                             <descriptors>
                                 <descriptor>src/main/assembly/assembly.xml</descriptor>
                             </descriptors>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+        <profile>
+            <id>release</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.jreleaser</groupId>
+                        <artifactId>jreleaser-maven-plugin</artifactId>
+                        <version>${jreleaser.version}</version>
+                        <configuration>
+                            <jreleaser>
+                                <release>
+                                    <github>
+                                        <changelog>
+                                            <formatted>ALWAYS</formatted>
+                                            <preset>conventional-commits</preset>
+                                        </changelog>
+                                    </github>
+                                </release>
+                                <distributions>
+                                    <java-kind-client>
+                                        <name>java-kind-client</name>
+                                        <type>BINARY</type>
+                                        <brew>
+                                            <active>RELEASE</active>
+                                            <multiPlatform>true</multiPlatform>
+                                        </brew>
+                                        <sdkman>
+                                            <active>RELEASE</active>
+                                        </sdkman>
+                                        <artifacts>
+                                            <artifact>
+                                                <path>
+                                                    {{artifactsDir}}/{{distributionName}}-{{projectVersion}}-linux-x86_64.tar.gz
+                                                </path>
+                                                <transform>
+                                                    artifacts/{{distributionName}}-{{projectEffectiveVersion}}-linux-x86_64.tar.gz
+                                                </transform>
+                                                <platform>linux-x86_64</platform>
+                                            </artifact>
+                                            <artifact>
+                                                <path>
+                                                    {{artifactsDir}}/{{distributionName}}-{{projectVersion}}-osx-x86_64.tar.gz
+                                                </path>
+                                                <transform>
+                                                    artifacts/{{distributionName}}-{{projectEffectiveVersion}}-osx-x86_64.tar.gz
+                                                </transform>
+                                                <platform>osx-x86_64</platform>
+                                            </artifact>
+                                            <artifact>
+                                                <path>
+                                                    {{artifactsDir}}/{{distributionName}}-{{projectVersion}}-osx-aarch_64.tar.gz
+                                                </path>
+                                                <transform>
+                                                    artifacts/{{distributionName}}-{{projectEffectiveVersion}}-osx-aarch_64.tar.gz
+                                                </transform>
+                                                <platform>osx-aarch_64</platform>
+                                            </artifact>
+                                        </artifacts>
+                                    </java-kind-client>
+                                </distributions>
+                            </jreleaser>
                         </configuration>
                     </plugin>
                 </plugins>
