@@ -73,17 +73,6 @@ jobs:
             #sha256: 8d9297ddfd927580db9767406b9608223d80a9c7dc4f2dff512f6e402517de6e
             #OUTPUT_FILENAME="jkind-macOS-ARM64.zip"
 
-      - name: Extract the zip file
-        run: |
-          echo "Downloaded file details:"
-          ls -lh "${OUTPUT_FILENAME}"
-
-          mkdir artifacts
-          unzip -d artifacts/ "${OUTPUT_FILENAME}"
-
-          echo "Downloaded file details:"
-          ls -lh artifacts
-
       - name: 'Set up Java'
         uses: actions/setup-java@v4
         with:
