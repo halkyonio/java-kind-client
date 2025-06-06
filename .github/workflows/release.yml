@@ -84,7 +84,7 @@ jobs:
     needs: [maven-release]
     strategy:
       matrix:
-        os: [ macOS-latest ] # ubuntu-latest, macos-13
+        os: [ ubuntu-latest, macOS-latest ] # ubuntu-latest, macos-13
     uses: ./.github/workflows/native-build.yml
     with:
       platform: ${{ matrix.os }}
