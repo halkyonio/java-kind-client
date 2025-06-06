@@ -2,20 +2,24 @@ name: CI to build the executable
 
 on:
   workflow_dispatch:
-  #push:
-  #  branches: [ "main" ]
-  #pull_request:
-  #  branches: [ "main" ]
+    inputs:
+      platform:
+        required: false
+        description: Binary platform
+        type: string
+        default: "macOS-latest"
+  workflow_call:
+    inputs:
+      platform:
+        required: false
+        description: Binary platform
+        type: string
+        default: "macOS-latest"
 
 jobs:
   build:
-    name: Build on ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        # os: [windows-latest, macos-latest, ubuntu-latest]
-        os: [ubuntu-latest]
-    runs-on: ${{ matrix.os }}
+    name: 'Build with Graal on ${{ inputs.platform }}'
+    runs-on: ${{ inputs.platform }}
 
     steps:
     - uses: actions/checkout@v4
@@ -26,6 +30,13 @@ jobs:
         java-version: '21'
         distribution: 'temurin'
         cache: maven
+    - name: Setup graalvm
+      uses: graalvm/setup-graalvm@v1
+      with:
+        java-version: '21'
+        distribution: 'graalvm'
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        native-image-job-reports: 'true'
 
     - name: Checkout the Platform Operator Maven project
       uses: actions/checkout@v4
@@ -42,12 +53,14 @@ jobs:
 
     - name: 'Build Native Image'
       run: |
-        mvn -B clean install -Dnative \
-           -Dquarkus.native.container-build=true \
-           -Dnative.surefire.skip
+        mvn -ntp -B clean install -Pnative  -DskipTests
+
+    - name: 'Create distribution'
+      run: |
+        mvn -ntp -B --file pom.xml -Pdist package -DskipTests
 
     - name: 'Upload build artifact'
       uses: actions/upload-artifact@v4
       with:
         name: jkind-${{ runner.os }}-${{ runner.arch }}
-        path: target/*.tar.gz
+        path: target/distributions/*.tar.gz
