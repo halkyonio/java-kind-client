@@ -16,12 +16,41 @@ defaults:
     shell: bash
 
 jobs:
-  maven-release:
+  precheck:
+    if: github.repository == 'halkyonio/java-kind-client' && startsWith(github.event.head_commit.message, 'Releasing version') != true
     runs-on: ubuntu-latest
-    name: Release java-kind-client
-    if: ${{ github.event_name == 'workflow_dispatch' || github.event.pull_request.merged == true}}
     outputs:
-      already_released: ${{steps.released.outputs.already_released}}
+      VERSION: ${{ steps.vars.outputs.VERSION }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Cancel previous run
+        uses: styfle/cancel-workflow-action@0.12.1
+        with:
+          access_token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: ${{ env.JAVA_DISTRO }}
+          cache: maven
+
+      - name: Version
+        id: vars
+        shell: bash
+        run: |
+          VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
+          echo "VERSION=$(echo $VERSION)" >> $GITHUB_OUTPUT
+
+  maven-release:
+    needs: [ precheck ]
+    name: Release java-kind-client
+    if: ${{ github.event_name == 'workflow_dispatch' || endsWith(${{ needs.precheck.outputs.VERSION }}, '-SNAPSHOT') }} # github.event.pull_request.merged == true}}
+    runs-on: ubuntu-latest
+    #outputs:
+    #  already_released: ${{steps.released.outputs.already_released}}
 
     steps:
       - uses: actions/checkout@v4
@@ -34,20 +63,20 @@ jobs:
           metadata-file-path: '.github/project.yml'
           local-file: true
 
-      - name: Check if already released
-        id: released
-        run: |
-          # TODO
-          # if curl --output /dev/null --silent --head --fail "https://repo1.maven.org/maven2/net/laprun/sustainability/java-kind-client/${{steps.metadata.outputs.current-version}}"; then
-          #  echo "already_released=true" >> $GITHUB_OUTPUT
-          #fi
-          echo "already_released=false" >> $GITHUB_OUTPUT
+      #- name: Check if already released
+      #  id: released
+      #  run: |
+      #    # TODO
+      #    # if curl --output /dev/null --silent --head --fail "https://repo1.maven.org/maven2/net/laprun/sustainability/java-kind-client/${{steps.metadata.outputs.current-version}}"; then
+      #    #  echo "already_released=true" >> $GITHUB_OUTPUT
+      #    #fi
+      #    echo "already_released=false" >> $GITHUB_OUTPUT
 
-      - name: Configure Git author
-        if: steps.released.outputs.already_released != 'true'
-        run: |
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
+      #- name: Configure Git author
+      #  if: steps.released.outputs.already_released != 'true'
+      #  run: |
+      #    git config --local user.email "action@github.com"
+      #    git config --local user.name "GitHub Action"
 
       #- uses: actions/setup-java@v4
       #  if: steps.released.outputs.already_released != 'true'
@@ -118,6 +147,7 @@ jobs:
 
       - name: 'Release with JReleaser'
         env:
+          JRELEASER_PROJECT_VERSION: ${{ needs.precheck.outputs.VERSION }}
           JRELEASER_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           mvn -ntp -B --file pom.xml -Prelease -DartifactsDir=artifacts jreleaser:full-release
