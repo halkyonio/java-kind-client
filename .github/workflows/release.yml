@@ -9,6 +9,10 @@ on:
     paths:
       - '.github/project.yml'
 
+env:
+  JAVA_VERSION: '17'
+  JAVA_DISTRO: 'temurin'
+
 concurrency:
   group: "${{ github.workflow }}-${{ github.ref }}"
   cancel-in-progress: true
@@ -143,8 +147,8 @@ jobs:
       - name: 'Set up Java'
         uses: actions/setup-java@v4
         with:
-          java-version: 17
-          distribution: 'temurin'
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: ${{ env.JAVA_DISTRO }}
           cache: maven
 
       - name: 'Release with JReleaser'
