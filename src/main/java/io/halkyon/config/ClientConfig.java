@@ -13,6 +13,7 @@ public interface ClientConfig {
      * Version of kubernetes to be installed
      */
     @WithName("kubernetesVersion")
+    @WithDefault("v1.29.4")
     Optional<String> kubernetesVersion();
 
     /**
@@ -35,7 +36,7 @@ public interface ClientConfig {
      * Binding configuration
      * It represents the ports to be bind between the container and the host
      */
-    @WithName("bindings")
+     @WithName("bindings")
      List<Binding> binding();
 
      interface Binding {
