@@ -20,17 +20,23 @@ import io.halkyon.container.ImageUtils;
 import io.halkyon.kind.KindKubernetesConfiguration;
 import io.quarkus.qute.Location;
 import io.quarkus.qute.Template;
+import io.smallrye.config.SmallRyeConfig;
+import io.smallrye.config.SmallRyeConfigBuilder;
+import io.smallrye.config.source.yaml.YamlLocationConfigSourceFactory;
 import jakarta.inject.Inject;
 import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
 import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
 import org.apache.commons.compress.archivers.tar.TarArchiveOutputStream;
 import org.apache.commons.compress.utils.IOUtils;
+import org.eclipse.microprofile.config.ConfigProvider;
+import org.eclipse.microprofile.config.spi.ConfigSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testcontainers.images.builder.Transferable;
 import picocli.CommandLine;
 
 import java.io.*;
+import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.concurrent.Callable;
@@ -43,6 +49,7 @@ import static io.halkyon.container.ContainerUtils.getFreePortOnHost;
 import static io.halkyon.internal.resource.platform.Utils.installPlatformController;
 import static io.halkyon.kind.KindVersion.defaultKubernetesVersion;
 import static io.halkyon.kind.KubernetesConfig.*;
+import static io.smallrye.config.SmallRyeConfig.SMALLRYE_CONFIG_LOCATIONS;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Arrays.asList;
@@ -77,8 +84,8 @@ public class CreateContainer extends Container implements Callable<Integer> {
     @CommandLine.Option(names = {"-k", "--kube-version"}, description = "The version of the kubernetes cluster to use")
     String kubeVersion;
 
-    @CommandLine.Option(names = {"-c", "--config-file"}, description = "The version of the kubernetes cluster to use")
-    File kubeConfigfile;
+    @CommandLine.Option(names = {"-c", "--config-file"}, description = "The YAML config file")
+    File Configfile;
 
     @CommandLine.Option(names = {"-p", "--port"}, description = "Bind a container's port(s) to the host", arity = "1..*")
     List<String> ports;  // e.g., "8080:80", "443:443/tcp"
@@ -89,26 +96,54 @@ public class CreateContainer extends Container implements Callable<Integer> {
     @CommandLine.Option(names = {"-e", "--env"}, description = "Set environment variables", arity = "1..*")
     List<String> environment; // e.g., "VAR1=value1", "VAR2=value2"
 
-    @Inject
     ClientConfig cfg;
 
     @Override
     public Integer call() {
-        // TODO: Improve this code to merge the user's arguments with the application.properties
-        LOG.info("Cluster name: " + cfg.name());
-        LOG.info("Labels: " + cfg.labels());
-        cfg.binding().forEach(b -> {
-            LOG.info("Binding between host => container: {}:{}", b.hostPort(), b.containerPort());
-        });
 
         try {
-            if (kubeConfigfile != null) {
-                if (!kubeConfigfile.exists() || !kubeConfigfile.isFile()) {
+            if (Configfile != null) {
+                if (!Configfile.exists() || !Configfile.isFile()) {
                     // TODO to be reviewed to handle the 2 use cases: not found or not provided
-                    LOG.warn("User's config file not provided or not found: {}",kubeConfigfile.getAbsolutePath());
+                    LOG.warn("User's config file not provided or not found: {}", Configfile.getAbsolutePath());
                 }
-                System.setProperty("quarkus.config.locations", "file:" + kubeConfigfile.getAbsolutePath());
-                LOG.debug("External config file: {}", kubeConfigfile.getAbsolutePath());
+                LOG.debug("External config file: {}", Configfile.getAbsolutePath());
+
+                System.setProperty(SMALLRYE_CONFIG_LOCATIONS, Configfile.getAbsolutePath());
+                SmallRyeConfig config = ConfigProvider.getConfig().unwrap(SmallRyeConfig.class);
+                SmallRyeConfig ClientConfig = new SmallRyeConfigBuilder()
+                    .withMapping(ClientConfig.class)
+                    .withValidateUnknown(false)
+                    .withSources(new YamlLocationConfigSourceFactory() {
+                        @Override
+                        protected ConfigSource loadConfigSource(URL url, int ordinal) throws IOException {
+                            return super.loadConfigSource(url, 500);
+                        }
+                    })
+                    .withSources(new ConfigSource() {
+                        @Override
+                        public Set<String> getPropertyNames() {
+                            Set<String> properties = new HashSet<>();
+                            config.getPropertyNames().forEach(properties::add);
+                            return properties;
+                        }
+
+                        @Override
+                        public String getValue(final String propertyName) {
+                            return config.getRawValue(propertyName);
+                        }
+
+                        @Override
+                        public String getName() {
+                            return "Client Config";
+                        }
+                    })
+                    .build();
+                cfg = ClientConfig.getConfigMapping(ClientConfig.class);
+                LOG.info("Kube version: " + cfg.kubernetesVersion().get());
+                LOG.info("Name: " + cfg.name());
+                LOG.info("Provider: " + cfg.providerId());
+                LOG.info("Labels: " + cfg.labels().get());
             }
 
             // Check if the user provided a kubernetes version (command line or YAML file), otherwise use the default
@@ -268,7 +303,7 @@ public class CreateContainer extends Container implements Callable<Integer> {
                 return 0;
             } catch (DockerClientException e) {
                 LOG.warn("Timeout to get the kind container response ...");
-                return 0;
+                return 1;
             } catch (NotModifiedException e) {
                 LOG.warn("Container is already running {}.", containerInfo.getId());
                 return 1;
@@ -282,13 +317,12 @@ public class CreateContainer extends Container implements Callable<Integer> {
                 if (e.getMessage().startsWith("Status 500: {\"cause\":\"that name is already in use\"")) {
                     LOG.error("Container with the same name already exist: {}", containerName);
                 } else {
-                    var msg = e.getMessage();
                     LOG.error(e.getMessage());
                 }
                 return 1;
             }
         } catch (Exception e) {
-            LOG.error("Error starting the container {}: {}", containerInfo.getId(), e.getMessage(), e);
+            LOG.error("Error creating the container using the engine: {}.\n{}", cfg.providerId(), e.getMessage());
             return 1;
         } finally {
             closeDockerClient();
