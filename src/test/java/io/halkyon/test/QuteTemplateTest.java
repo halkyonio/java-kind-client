@@ -4,15 +4,18 @@ import io.halkyon.config.model.qute.KubeAdmConfig;
 import io.quarkus.qute.Location;
 import io.quarkus.qute.Template;
 
+import io.quarkus.test.junit.QuarkusTest;
 import jakarta.inject.Inject;
 
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-@io.quarkus.test.junit.QuarkusTest
+@QuarkusTest
 public class QuteTemplateTest {
     @Inject
     @Location("kubeadm.yaml")

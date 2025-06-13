@@ -1,6 +1,8 @@
 package io.halkyon.internal.resource.platform;
 
 import io.fabric8.kubernetes.api.model.HasMetadata;
+import io.fabric8.kubernetes.api.model.Namespace;
+import io.fabric8.kubernetes.api.model.NamespaceBuilder;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import org.jboss.logging.Logger;
 import org.junit.jupiter.api.Assertions;
@@ -35,14 +37,21 @@ public class Utils {
         List<HasMetadata> items;
         HasMetadata res;
 
+        // Creating the platform namespace
+        client.namespaces().resource(new NamespaceBuilder()
+            .withNewMetadata()
+              .withName(PLATFORM_CONTROLLER_NAMESPACE)
+            .endMetadata()
+            .build()).create();
+
         // TODO: The RBAC should be merged with the controller resources
-        // Create the namespace and RBAC
+        // Create the RBAC
         try {
             items = client.load(new URL("https://raw.githubusercontent.com/halkyonio/java-package-operator/refs/heads/main/resources/manifests/rbac-cluster-admin-sa-default.yml").openStream()).items();
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
-        LOGGER.info("Deploying the Platform resources: rbac, namespace, etc ...");
+        LOGGER.info("Deploying the Platform resources: rbac, etc ...");
         for (HasMetadata item : items) {
             res = client.resource(item).create();
             Assertions.assertNotNull(res);
