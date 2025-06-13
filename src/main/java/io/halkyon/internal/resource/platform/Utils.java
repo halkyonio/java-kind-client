@@ -75,6 +75,6 @@ public class Utils {
         }
 
         // Waiting till the controller pod is ready/running ...
-        waitTillPodSelectedByLabelsIsReady(client, Map.of("app.kubernetes.io/name", "package-operator", "app.kubernetes.io/version","0.1.0-SNAPSHOT"), PLATFORM_CONTROLLER_NAMESPACE);
+        waitTillPodSelectedByLabelsIsReady(client, Map.of("app.kubernetes.io/name", "platform-operator", "app.kubernetes.io/version","0.1.0-SNAPSHOT"), PLATFORM_CONTROLLER_NAMESPACE);
     }
 }
