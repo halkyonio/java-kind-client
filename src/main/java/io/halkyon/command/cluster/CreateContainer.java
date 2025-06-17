@@ -55,7 +55,6 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Arrays.asList;
 import static java.util.Collections.emptyList;
 
-// Example Subcommand: Create
 @CommandLine.Command(name = "create", description = "Create a new container")
 public class CreateContainer extends Container implements Callable<Integer> {
 
@@ -102,16 +101,20 @@ public class CreateContainer extends Container implements Callable<Integer> {
     public Integer call() {
 
         try {
+
+            SmallRyeConfig config = ConfigProvider.getConfig().unwrap(SmallRyeConfig.class);
+            SmallRyeConfigBuilder configBuilder = new SmallRyeConfigBuilder();
+            SmallRyeConfig smallRyeConfig;
+
             if (Configfile != null) {
                 if (!Configfile.exists() || !Configfile.isFile()) {
                     // TODO to be reviewed to handle the 2 use cases: not found or not provided
                     LOG.warn("User's config file not provided or not found: {}", Configfile.getAbsolutePath());
                 }
-                LOG.debug("External config file: {}", Configfile.getAbsolutePath());
+                LOG.info("External config file: {}", Configfile.getAbsolutePath());
 
                 System.setProperty(SMALLRYE_CONFIG_LOCATIONS, Configfile.getAbsolutePath());
-                SmallRyeConfig config = ConfigProvider.getConfig().unwrap(SmallRyeConfig.class);
-                SmallRyeConfig ClientConfig = new SmallRyeConfigBuilder()
+                smallRyeConfig = configBuilder
                     .withMapping(ClientConfig.class)
                     .withValidateUnknown(false)
                     .withSources(new YamlLocationConfigSourceFactory() {
@@ -139,12 +142,36 @@ public class CreateContainer extends Container implements Callable<Integer> {
                         }
                     })
                     .build();
-                cfg = ClientConfig.getConfigMapping(ClientConfig.class);
-                LOG.info("Kube version: " + cfg.kubernetesVersion().get());
-                LOG.info("Name: " + cfg.name());
-                LOG.info("Provider: " + cfg.providerId());
-                LOG.info("Labels: " + cfg.labels().get());
+                cfg = smallRyeConfig.getConfigMapping(ClientConfig.class);
+            } else {
+                smallRyeConfig = configBuilder
+                    .withMapping(ClientConfig.class)
+                    .withValidateUnknown(false)
+                    .withSources(new ConfigSource() {
+                        @Override
+                        public Set<String> getPropertyNames() {
+                            Set<String> properties = new HashSet<>();
+                            config.getPropertyNames().forEach(properties::add);
+                            return properties;
+                        }
+
+                        @Override
+                        public String getValue(final String propertyName) {
+                            return config.getRawValue(propertyName);
+                        }
+
+                        @Override
+                        public String getName() {
+                            return "Client Config";
+                        }
+                    })
+                    .build();
+                cfg = smallRyeConfig.getConfigMapping(ClientConfig.class);
             }
+            LOG.info("Kube version: " + cfg.kubernetesVersion().get());
+            LOG.info("Name: " + cfg.name());
+            LOG.info("Provider: " + cfg.providerId());
+            LOG.info("Labels: " + cfg.labels().get());
 
             // Check if the user provided a kubernetes version (command line or YAML file), otherwise use the default
             setKubernetesVersion();
